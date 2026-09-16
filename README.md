@@ -129,3 +129,61 @@ npm run lint
 npm run typecheck
 npm run test:unit
 ```
+
+## Phase 48-2 repository access / exact source
+
+Phase 48-2 adds the Controller-side repository boundary after Phase 48-1 has
+validated the approved handoff and revalidated requirements:
+
+```text
+Phase 46 repository identity
+-> early repository allowlist pre-check
+-> Controller reads repository credential
+-> credentialed source-ref resolution
+-> exact immutable Git commit
+-> Phase 48-3 formal-gate continuation
+```
+
+The runtime repository identity is never normalized. `AGENT_RUNNER_REPOSITORY_CONFIG`
+contains the deployment-side allowlist and repository-access mapping. Each entry
+uses:
+
+```text
+repository|remote_url|source_ref|username_env|password_env
+```
+
+Multiple entries are separated by `;`. Only configured repository entries have
+leading/trailing ASCII whitespace removed; authorization then uses exact string
+equality. Missing/invalid/duplicate configuration fails closed. An explicitly
+empty value is a valid allowlist that authorizes no repository.
+
+Credentials remain Controller-owned. The implementation reads the configured
+credential environment variables only after authorization succeeds. Git receives
+the credential in its child-process environment through an HTTP authorization
+header; the secret is not placed in command arguments, result values, Redmine
+execution fields, or Agent input.
+
+Exact source resolution uses the configured moving `source_ref` only to obtain
+one full immutable Git commit ID. The downstream continuation receives:
+
+```text
+repository
+source_revision
+```
+
+No `execution_id` is allocated in Phase 48-2. Authorization/configuration,
+credential, or exact-source failures are routed through the existing
+`Needs Human + eligibility_failed` pre-execution rejection writer.
+
+### Checkout boundary
+
+The repository component also exposes the Phase 48-2 checkout interface:
+
+```text
+checkout(repository, source_revision, target_dir)
+```
+
+`target_dir` must already exist, be absolute and empty, and remains caller-owned.
+The component fetches only the already-fixed exact `source_revision`; it does not
+re-resolve `source_ref`, branch, tag, `HEAD`, or latest state during checkout.
+Phase 48-4 owns creation and cleanup of the task-scoped workspace passed here.

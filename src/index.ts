@@ -64,3 +64,39 @@ export {
 export {
   CanonicalRequirementsRevalidator,
 } from "./agent-brief/requirements-binding.js";
+export {
+  loadPhase48_2RuntimeConfig,
+  createPhase48_2ProductionRuntime,
+  type Phase48_2ProductionRuntime,
+  type Phase48_2RuntimeConfig,
+} from "./controller/phase48-2-runtime.js";
+export {
+  EnvironmentRepositoryCredentialProvider,
+  loadRepositoryAuthorizationConfiguration,
+  parseRepositoryAccessEntries,
+  RepositoryAccessPolicy,
+  type RepositoryCredentialProvider,
+} from "./repository/policy.js";
+export {
+  GitCliRepositoryComponent,
+  NodeGitCommandRunner,
+  type GitCommandInput,
+  type GitCommandRunner,
+} from "./repository/git-repository.js";
+export {
+  Phase48_2EligibleCandidateHandler,
+} from "./repository/phase48-2-handler.js";
+export {
+  RepositoryAccessError,
+  type ExactSourceResolvedHandler,
+  type ExactSourceResolvedInput,
+  type RepositoryAccessEntry,
+  type RepositoryAuthorizationConfiguration,
+  type RepositoryAccessFailureCode,
+  type RepositoryCheckout,
+  type RepositoryCheckoutInput,
+  type RepositoryCheckoutResult,
+  type RepositoryCredential,
+  type RepositorySourceResolver,
+  type ResolvedSource,
+} from "./repository/types.js";
