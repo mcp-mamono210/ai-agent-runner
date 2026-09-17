@@ -23,10 +23,22 @@ export interface ReFetchedIssue {
  * rules. The injected validator owns validation against the canonical Phase 46
  * contract and returns a validated value only after those rules pass.
  */
+export interface ValidatedHandoffApproval {
+  readonly approverIdentity: string;
+  readonly approvedAt: string;
+  readonly briefRevision: number;
+  readonly persistedRevision: string;
+}
+
 export interface ValidatedHandoff {
   readonly issueId: number;
   readonly repository: string;
   readonly approvedRequirementsFingerprint: string;
+  /**
+   * Explicit immutable approval identity needed by execution preparation.
+   * Older tests/adapters may omit it; production Phase 46 binding supplies it.
+   */
+  readonly approval?: ValidatedHandoffApproval;
   readonly opaque: unknown;
 }
 

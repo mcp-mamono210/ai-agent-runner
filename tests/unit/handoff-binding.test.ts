@@ -94,6 +94,12 @@ void describe("Phase 46 handoff binding", () => {
       if (result.ok) {
         assert.equal(result.handoff.repository, "mcp-mamono210/redmine");
         assert.equal(result.handoff.approvedRequirementsFingerprint, FINGERPRINT);
+        assert.deepEqual(result.handoff.approval, {
+          approverIdentity: "redmine-user:3",
+          approvedAt: "2026-09-17T00:00:00Z",
+          briefRevision: 2,
+          persistedRevision: fixture.blobId,
+        });
       }
     } finally {
       rmSync(fixture.root, { recursive: true, force: true });

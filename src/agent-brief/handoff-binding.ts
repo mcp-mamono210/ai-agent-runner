@@ -157,6 +157,12 @@ export class Phase46HandoffValidator implements HandoffValidator {
         issueId: redmineIssue.id,
         repository: this.#repository,
         approvedRequirementsFingerprint: approval.requirementsFingerprint,
+        approval: {
+          approverIdentity: approval.approverIdentity,
+          approvedAt: approval.approvedAt,
+          briefRevision: approval.briefRevision,
+          persistedRevision: approval.persistedRevision,
+        },
         opaque: {
           approverIdentity: approval.approverIdentity,
           approvedAt: approval.approvedAt,

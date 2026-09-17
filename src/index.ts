@@ -100,3 +100,31 @@ export {
   type RepositorySourceResolver,
   type ResolvedSource,
 } from "./repository/types.js";
+export {
+  Phase47FormalAuthorizationGate,
+} from "./execution/formal-gate.js";
+export {
+  Phase48_3ExactSourceResolvedHandler,
+  UuidV4ExecutionIdAllocator,
+} from "./execution/preparation.js";
+export {
+  RedmineAgentRunningWriter,
+} from "./redmine/execution-writer.js";
+export {
+  createPhase48_3ProductionRuntime,
+  loadPhase48_3RuntimeConfig,
+  type Phase48_3ProductionRuntime,
+  type Phase48_3RuntimeConfig,
+} from "./controller/phase48-3-runtime.js";
+export type {
+  AgentRunningConfirmedHandler,
+  AgentRunningDurableWriter,
+  ApprovedBriefExecutionReference,
+  ExecutionIdAllocator,
+  FormalAuthorizationGate,
+  FormalAuthorizationInput,
+  ImmutableExecutionInput,
+  LogicalExecutionRecord,
+  PendingExecutionValue,
+  PreparedExecution,
+} from "./execution/types.js";

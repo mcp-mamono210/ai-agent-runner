@@ -187,3 +187,57 @@ checkout(repository, source_revision, target_dir)
 The component fetches only the already-fixed exact `source_revision`; it does not
 re-resolve `source_ref`, branch, tag, `HEAD`, or latest state during checkout.
 Phase 48-4 owns creation and cleanup of the task-scoped workspace passed here.
+
+## Phase 48-3 execution preparation / durable start
+
+Phase 48-3 consumes the exact `repository + source_revision` fixed by Phase 48-2
+and preserves the Phase 46 / Phase 47 ordering:
+
+```text
+exact source fixed
+-> formal Phase 47 authorization gate
+-> execution preparation entered
+-> lowercase UUIDv4 execution_id allocated
+-> immutable execution-input snapshot
+-> logical execution record prepared
+-> one durable Redmine Agent Running mutation
+-> exact read-back confirmation
+-> Phase 48-4 continuation
+```
+
+The formal gate re-establishes authorization against the same repository policy.
+It consumes the unchanged Phase 46 repository identity plus the already-fixed
+full Git object ID and does not re-resolve a branch, tag, `HEAD`, or another
+moving ref. Gate failure remains an execution-ID-less
+`Needs Human + eligibility_failed` rejection.
+
+After the formal gate succeeds, `execution_id` is allocated as a canonical
+lowercase UUIDv4. The immutable snapshot fixes:
+
+```text
+execution_id
+issue_id
+repository
+source_revision
+brief_revision
+persisted_revision
+requirements_fingerprint
+approved Brief reference
+```
+
+The corresponding logical execution record represents `finished_at`, `outcome`,
+and `artifact_reference` as pending values until later phases establish them.
+Mutable Redmine or Git state is not used to retarget this started identity.
+
+Before the Phase 48-4 continuation is invoked, the Controller performs one
+Redmine start mutation containing `Agent Running`, the execution identity and
+all required start facts. The same mutation clears stale pre-execution rejection
+projection fields and writes the physically permitted empty pending values for
+`finished_at`, execution `outcome`, and `artifact_reference`.
+
+HTTP success alone is not permission to continue. The Controller re-fetches the
+Issue and requires every execution/rejection field in the expected current
+projection to match exactly. A failed, rejected, partial, ambiguous,
+mismatching, or unverifiable mutation stops before the downstream continuation;
+it is not converted back into an execution-ID-less pre-execution rejection.
+Phase 48-6 owns recovery of such started/prepared ambiguity.
