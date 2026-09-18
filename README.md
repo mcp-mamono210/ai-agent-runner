@@ -241,3 +241,131 @@ projection to match exactly. A failed, rejected, partial, ambiguous,
 mismatching, or unverifiable mutation stops before the downstream continuation;
 it is not converted back into an execution-ID-less pre-execution rejection.
 Phase 48-6 owns recovery of such started/prepared ambiguity.
+
+## Phase 48-4 task workspace / Docker sandbox
+
+Phase 48-4 makes the remaining deployment-level implementation choices required
+by #5413 without changing the Phase 47 canonical security contract:
+
+```text
+sandbox/container runtime = Docker Engine
+Agent provider             = Codex CLI
+execution isolation        = 1 execution attempt / 1 fresh container
+```
+
+The provider-specific Codex invocation remains Phase 48-5. Phase 48-4 only
+creates the task workspace, exact-source checkout target, sandbox boundary,
+network/resource controls, mechanical inspection, and disposal interface.
+
+The post-`Agent Running` path is:
+
+```text
+Agent Running durable read-back confirmed
+-> fresh task-scoped host workspace
+-> Phase 48-2 checkout(repository, source_revision, target_dir)
+-> workspace disk-bound check
+-> managed network policy verification
+-> fresh Docker sandbox create
+-> mechanical mount / privilege / credential inspection
+-> Phase 48-5 continuation
+-> dispose container + workspace
+```
+
+The source checkout remains Controller-side. The Agent receives the prepared
+workspace and does not receive the Controller repository credential, Redmine
+Writer credential, control-plane credential, host credential store, or Docker
+socket.
+
+### Filesystem and mount isolation
+
+The Docker sandbox is created with a read-only root filesystem, all Linux
+capabilities dropped, and `no-new-privileges`. The only host-backed mount allowed
+by the mechanical verifier is exactly:
+
+```text
+<one execution-scoped workspace> -> /workspace (rw)
+```
+
+Any second bind/volume mount, workspace mismatch, privileged container, missing
+capability drop, missing no-new-privileges, Docker socket mount, or known
+Controller credential environment causes preparation to fail closed. Ephemeral
+`/tmp` is container-local tmpfs and is separately bounded.
+
+### Network enforcement
+
+The sandbox is not attached to Docker's default `bridge`, `host`, or an open
+public network. It attaches only to a dedicated **internal** Docker network.
+External access must go through a managed egress proxy on that internal network.
+The resolved policy covers exactly the five Phase 47 categories:
+
+```text
+agent-provider
+package-registry
+required-runtime-dependency
+source-repository
+other-external-endpoint
+```
+
+For the current v0.4 Codex mode, `agent-provider` must resolve to a bounded
+required endpoint set, `source-repository` is denied inside the Agent sandbox,
+and `other-external-endpoint` is denied. Package registry and runtime dependency
+access must also be explicitly resolved; missing/unresolved/wildcard policy is
+not permission for open egress.
+
+The runtime computes a deterministic `sha256:` digest of the resolved category
+policy. Before sandbox creation it requires the Docker internal network and the
+managed proxy container to advertise the same digest via:
+
+```text
+io.mcp.agent-runner.egress-policy-sha256=<digest>
+```
+
+The proxy container must additionally advertise:
+
+```text
+io.mcp.agent-runner.egress-proxy=true
+```
+
+and be running on the configured internal network. This binds the Runner's
+resolved policy to the deployment-managed proxy/firewall configuration instead
+of silently falling back to unrestricted Docker egress.
+
+### Resource boundary
+
+Phase 48-4 requires finite configured values for:
+
+```text
+execution timeout
+output capture bytes
+diagnostic capture bytes
+workspace disk bytes
+container lifecycle milliseconds
+workspace disk-check interval
+tmpfs bytes
+```
+
+No invalid or missing limit becomes an unbounded default. `BoundedUtf8Capture`
+keeps output/diagnostic capture finite and records truncation. The workspace is
+checked before sandbox creation and monitored while the sandbox exists. The
+container has a lifecycle timer; disk/lifecycle enforcement aborts the sandbox
+signal and force-removes the container. Phase 48-5 consumes the execution-time
+signal/capture limits for the one-shot Agent invocation, while Phase 48-6 owns
+startup orphan reconciliation after process/host interruption.
+
+### Disposal / Phase 48-5 handoff
+
+`Phase48_4AgentRunningConfirmedHandler` owns transient workspace/sandbox lifetime
+around the Phase 48-5 continuation. The downstream handler returns one of the
+explicit disposal classes (`success`, `failure`, `timeout`, `interruption`, etc.),
+and container/workspace cleanup runs in `finally`.
+
+If checkout or sandbox preparation fails after `Agent Running` has already been
+durably established, Phase 48-4 does **not** rewrite the event as a pre-execution
+rejection. It invokes the Phase 48-5 preparation-failure hook, allowing the later
+started-execution finalizer to map that failure under the existing Phase 45
+outcome taxonomy while Phase 48-4 still cleans transient resources.
+
+The pinned Phase 48-4 sandbox image must contain the Codex CLI runtime and a
+`sleep` executable. Phase 48-4 overrides the container entrypoint to `sleep
+infinity` so the sandbox can be created/inspected first; Phase 48-5 owns starting
+the container and invoking Codex through the provider-specific Agent Adapter.

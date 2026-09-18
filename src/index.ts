@@ -128,3 +128,52 @@ export type {
   PendingExecutionValue,
   PreparedExecution,
 } from "./execution/types.js";
+export {
+  createPhase48_4ProductionRuntime,
+  loadPhase48_4RuntimeConfig,
+  type Phase48_4ProductionRuntime,
+  type Phase48_4RuntimeConfig,
+} from "./controller/phase48-4-runtime.js";
+export {
+  loadSandboxRuntimeConfig,
+  parseResourceLimits,
+} from "./sandbox/config.js";
+export {
+  computeNetworkPolicyDigest,
+  parseSandboxNetworkPolicy,
+} from "./sandbox/network-policy.js";
+export {
+  BoundedUtf8Capture,
+  SandboxResourcePolicy,
+  type CaptureSnapshot,
+} from "./sandbox/resource-policy.js";
+export {
+  TaskWorkspaceManager,
+} from "./sandbox/workspace.js";
+export {
+  DockerSandboxRuntime,
+  NodeDockerCommandRunner,
+  type DockerCommandRunner,
+} from "./sandbox/docker-runtime.js";
+export {
+  Phase48_4AgentRunningConfirmedHandler,
+} from "./sandbox/phase48-4-handler.js";
+export {
+  AGENT_PROVIDER,
+  NETWORK_ENDPOINT_CATEGORIES,
+  SANDBOX_RUNTIME,
+  type NetworkEndpointCategory,
+  type PreparedSandboxExecution,
+  type ResolvedNetworkCategoryPolicy,
+  type ResolvedNetworkClassification,
+  type ResolvedSandboxNetworkPolicy,
+  type SandboxDisposalReason,
+  type SandboxHandle,
+  type SandboxInspection,
+  type SandboxPreparationFailureHandler,
+  type SandboxPreparedHandler,
+  type SandboxResourceLimits,
+  type SandboxRuntime,
+  type SandboxRuntimeConfig,
+  type TaskWorkspace,
+} from "./sandbox/types.js";
