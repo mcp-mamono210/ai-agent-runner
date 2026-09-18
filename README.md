@@ -369,3 +369,89 @@ The pinned Phase 48-4 sandbox image must contain the Codex CLI runtime and a
 `sleep` executable. Phase 48-4 overrides the container entrypoint to `sleep
 infinity` so the sandbox can be created/inspected first; Phase 48-5 owns starting
 the container and invoking Codex through the provider-specific Agent Adapter.
+
+## Phase 48-5 Agent Adapter / one-shot execution / started failure finalization
+
+Phase 48-5 consumes the Phase 48-4 prepared sandbox only after `Agent Running`
+has been durably confirmed. The provider-specific boundary is isolated behind
+`AgentAdapter`; the v0.4 implementation is `CodexCliAgentAdapter`.
+
+The production one-shot invocation is intentionally a single non-interactive
+Codex call:
+
+```text
+Docker sandbox start
+-> prepare ephemeral CODEX_HOME under container /tmp
+-> docker exec -i ... codex --ask-for-approval never exec
+     --ephemeral
+     --ignore-user-config
+     --sandbox workspace-write
+     -
+-> exactly one result classification
+```
+
+The prompt points Codex at the exact approved Brief path derived from the
+immutable execution input:
+
+```text
+docs/agent-briefs/<issue_id>/revisions/<brief_revision>.md
+```
+
+There is no automatic Agent retry and no `codex exec resume`. The provider API
+credential is supplied only to that `docker exec` process. The credential value
+is not embedded in argv; Docker receives only the environment-variable name.
+Codex is also forced to enable key/token/secret default exclusions for shell
+children, preventing the provider key from being inherited by repository build
+or test commands.
+
+Agent stdout and diagnostic stderr are captured through the finite Phase 48-4
+byte limits. Before either representation can cross the Agent Adapter boundary,
+the reusable `KnownSecretRedactor` processes configured known secrets and common
+credential syntax. A redaction failure produces no raw successful result.
+Phase 48-6 reuses the same redaction abstraction rather than defining another
+secret-filtering implementation.
+
+The one-shot result taxonomy inside Phase 48 is:
+
+```text
+exit 0 + working tree changed -> changes_ready (provisional)
+exit 0 + working tree clean   -> no_changes (provisional)
+execution timeout             -> timeout
+provider/process start fail   -> agent_start_failed
+other nonzero/provider fail   -> agent_failed
+```
+
+`changes_ready` and `no_changes` are deliberately not successful durable
+finalization in Phase 48. They are passed to the injected
+`ProvisionalAgentResultHandler` for the later Phase 49 artifact boundary. Phase
+48 does not write `Ready for Independent Verification` and does not populate an
+artifact reference for those results.
+
+Started failures use `RedmineStartedExecutionFailureFinalizer`. Before the
+single write attempt, it re-fetches the Issue and verifies that the durable
+`Agent Running` projection still belongs to the exact execution identity. It
+then writes only:
+
+```text
+Agent Execution Lifecycle = Needs Human
+Agent Execution Finished At = RFC3339 timestamp
+Agent Execution Outcome = timeout | agent_start_failed | agent_failed
+Agent Artifact Reference = empty
+```
+
+The execution ID, Brief identity, requirements fingerprint, repository, exact
+source revision, and started timestamp are preserved. A 2xx write is not enough:
+the finalizer re-fetches the Issue and confirms the exact current projection.
+There is no blind finalization retry.
+
+If the finalization write fails, is partial, ambiguous, or cannot be verified,
+the handler does not claim success. Cleanup still runs through the Phase 48-4
+`finally` boundary and the durable Redmine projection may remain `Agent Running`.
+Phase 48-6 startup reconciliation owns the later canonical fallback to
+`interrupted`; the observed timeout/Agent failure is not treated as authoritative
+when its finalization could not be confirmed.
+
+Checkout or sandbox preparation failure after `Agent Running` but before provider
+invocation is routed through the same finalizer as `agent_start_failed`. This
+keeps execution-ID-less pre-execution rejection semantics separate from failures
+of an already-started durable attempt.

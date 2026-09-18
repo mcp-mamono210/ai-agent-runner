@@ -177,3 +177,48 @@ export {
   type SandboxRuntimeConfig,
   type TaskWorkspace,
 } from "./sandbox/types.js";
+export {
+  CodexCliAgentAdapter,
+  DockerCodexOneShotRunner,
+  EnvironmentCodexProviderCredentialProvider,
+  GitWorkingTreeChangeDetector,
+  buildCodexDockerExecArgs,
+} from "./agent/codex-cli-adapter.js";
+export {
+  Phase48_5SandboxPreparationFailureHandler,
+  Phase48_5SandboxPreparedHandler,
+} from "./agent/phase48-5-handler.js";
+export {
+  STARTED_FAILURE_RECONCILIATION_FALLBACK,
+  type AgentAdapter,
+  type AgentAdapterInput,
+  type AgentExecutionCapture,
+  type AgentExecutionResult,
+  type CodexOneShotRunner,
+  type CodexProcessObservation,
+  type CodexProviderCredential,
+  type CodexProviderCredentialProvider,
+  type FailedAgentExecutionResult,
+  type ProvisionalAgentExecutionResult,
+  type ProvisionalAgentResultHandler,
+  type ProvisionalExecutionOutcome,
+  type StartedExecutionFailureFinalizer,
+  type StartedExecutionFailureOutcome,
+  type WorkingTreeChangeDetector,
+} from "./agent/types.js";
+export {
+  RedmineStartedExecutionFailureFinalizer,
+} from "./redmine/execution-finalizer.js";
+export {
+  KnownSecretRedactor,
+  collectKnownSecretValues,
+  type RedactionContext,
+  type Redactor,
+} from "./security/redaction.js";
+export {
+  createPhase48_5ProductionRuntime,
+  loadPhase48_5RuntimeConfig,
+  parseSecretEnvironmentNames,
+  type Phase48_5ProductionRuntime,
+  type Phase48_5RuntimeConfig,
+} from "./controller/phase48-5-runtime.js";
