@@ -500,3 +500,40 @@ Recovery diagnostics cross the same reusable Phase 48-5 redaction component
 before any injected diagnostic sink sees them. If redaction itself fails, raw
 content is suppressed. Phase 48-6 does not add S3/artifact inspection; Phase 49
 owns durable artifact persistence and later artifact-aware reconciliation.
+
+## Phase 48-7 development Walking Skeleton
+
+Phase 48-7 adds a development-only verification surface over the existing Phase
+48-1 through Phase 48-6 runtime. It does not add a second execution lifecycle or
+production success transition.
+
+`createPhase48_7DevelopmentRuntime()` wires the Phase 48-6 production runtime to
+a provisional-success handler that captures, before workspace disposal:
+
+- immutable execution identity;
+- provisional `changes_ready` / `no_changes` outcome;
+- changed-file information;
+- a bounded local Git patch / change-set snapshot; and
+- a bounded execution summary for the Phase 49 handoff.
+
+The local patch remains transient development state. It is not the production
+durable artifact Source of Truth. Phase 49 still owns manifest creation, patch
+serialization, checksum, private S3 persistence, `artifact_reference`, successful
+Redmine finalization, and `Ready for Independent Verification`.
+
+The development Walking Skeleton also requires an explicit `DevelopmentFixtureReset`
+port. The reset implementation belongs to the development test harness or
+fixture system and is intentionally not part of the production Agent Controller
+lifecycle. If a successful provisional execution is not reset and the Controller
+restarts while Redmine remains `Agent Running`, Phase 48-6 reconciliation is
+expected to finalize it as `interrupted` / `Needs Human`.
+
+Development capture bounds are configurable with:
+
+```text
+AGENT_RUNNER_DEVELOPMENT_PATCH_CAPTURE_BYTES
+AGENT_RUNNER_DEVELOPMENT_SUMMARY_CAPTURE_BYTES
+```
+
+See `docs/phase48-final-verification.md` for the final Phase 48 verification and
+Phase 49 handoff boundary.

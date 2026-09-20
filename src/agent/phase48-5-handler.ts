@@ -54,6 +54,8 @@ export class Phase48_5SandboxPreparedHandler implements SandboxPreparedHandler {
     await this.#provisionalResultHandler.handle({
       execution: input.execution,
       result,
+      workspace: input.workspace,
+      checkout: input.checkout,
     });
     return "success";
   }

@@ -1,4 +1,5 @@
 import type { ImmutableExecutionInput, PreparedExecution } from "../execution/types.js";
+import type { RepositoryCheckoutResult } from "../repository/types.js";
 import type { SandboxHandle, TaskWorkspace } from "../sandbox/types.js";
 import type { CaptureSnapshot } from "../sandbox/resource-policy.js";
 
@@ -48,6 +49,8 @@ export interface ProvisionalAgentResultHandler {
   handle(input: {
     readonly execution: PreparedExecution;
     readonly result: ProvisionalAgentExecutionResult;
+    readonly workspace: TaskWorkspace;
+    readonly checkout: RepositoryCheckoutResult;
   }): Promise<void>;
 }
 
