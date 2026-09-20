@@ -339,4 +339,26 @@ void describe("AgentController", () => {
 
     assert.deepEqual(order, ["reconcile", "poll"]);
   });
+  void it("does not begin polling when startup reconciliation remains unconfirmed", async () => {
+    let polled = false;
+    const deps = buildDependencies({
+      startupReconciler: {
+        reconcile: () => Promise.reject(new Error("reconciliation unconfirmed")),
+      },
+      candidateSource: {
+        listReadyForAgentCandidates: () => {
+          polled = true;
+          return Promise.resolve([]);
+        },
+      },
+    });
+    const controller = new AgentController(
+      { allowedProjectIds: [414], pollIntervalMs: 30_000 },
+      deps,
+    );
+
+    await assert.rejects(controller.run(new AbortController().signal), /reconciliation unconfirmed/u);
+    assert.equal(polled, false);
+  });
+
 });

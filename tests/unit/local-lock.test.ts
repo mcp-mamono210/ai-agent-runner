@@ -24,3 +24,13 @@ void describe("InMemoryIssueLock", () => {
     assert.equal(lock.tryAcquire(5411), true);
   });
 });
+
+void it("does not preserve stale lock state across in-memory lock instances", () => {
+  const beforeRestart = new InMemoryIssueLock();
+  assert.equal(beforeRestart.tryAcquire(5415), true);
+  assert.equal(beforeRestart.isHeld(5415), true);
+
+  const afterRestart = new InMemoryIssueLock();
+  assert.equal(afterRestart.isHeld(5415), false);
+  assert.equal(afterRestart.tryAcquire(5415), true);
+});

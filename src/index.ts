@@ -222,3 +222,31 @@ export {
   type Phase48_5ProductionRuntime,
   type Phase48_5RuntimeConfig,
 } from "./controller/phase48-5-runtime.js";
+export {
+  createPhase48_6ProductionRuntime,
+  loadPhase48_6RuntimeConfig,
+  type Phase48_6ProductionRuntime,
+  type Phase48_6RuntimeConfig,
+} from "./controller/phase48-6-runtime.js";
+export {
+  DockerWorkspaceOrphanCleaner,
+} from "./recovery/orphan-cleanup.js";
+export {
+  RedmineAgentRunningExecutionSource,
+} from "./recovery/redmine-source.js";
+export {
+  Phase48_6StartupReconciler,
+} from "./recovery/startup-reconciler.js";
+export {
+  NoopRecoveryDiagnosticSink,
+  type AgentRunningExecutionCandidate,
+  type AgentRunningExecutionSource,
+  type InterruptedExecutionFinalizer,
+  type OrphanCleanupSummary,
+  type OrphanRuntimeCleaner,
+  type RecoveryDiagnosticKind,
+  type RecoveryDiagnosticSink,
+} from "./recovery/types.js";
+export {
+  RedmineInterruptedExecutionFinalizer,
+} from "./redmine/interrupted-finalizer.js";

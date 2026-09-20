@@ -455,3 +455,48 @@ Checkout or sandbox preparation failure after `Agent Running` but before provide
 invocation is routed through the same finalizer as `agent_start_failed`. This
 keeps execution-ID-less pre-execution rejection semantics separate from failures
 of an already-started durable attempt.
+
+## Phase 48-6 startup reconciliation and cleanup
+
+Phase 48-6 provides the concrete restart/recovery boundary for executions that
+remain durably `Agent Running`. The Controller still runs startup reconciliation
+before the first poll. Recovery does not resume or retry the Agent invocation.
+
+The startup sequence is:
+
+```text
+Controller startup
+  -> remove Agent Runner-owned orphan sandbox containers
+  -> remove Agent Runner-owned attempt workspaces
+  -> query allowed Redmine projects for Agent Execution Lifecycle = Agent Running
+  -> re-fetch each durable execution
+  -> preserve the existing execution identity
+  -> write Needs Human + interrupted + finished_at + empty artifact_reference
+  -> exact read-back confirmation
+  -> polling
+```
+
+`AGENT_RUNNER_EXECUTION_LIFECYCLE_FIELD_ID` identifies the environment-specific
+Redmine custom-field ID used only for the bounded `Agent Running` startup query.
+The finalizer still binds the execution fields by exact canonical field name and
+verifies the current durable identity before writing.
+
+The v0.4.0 lock remains process-local/in-memory. A process restart therefore
+removes stale local lock state by construction; Redmine, not the lock, is the
+recovery Source of Truth.
+
+Orphan cleanup is ownership-bounded. Docker cleanup selects only containers with
+`io.mcp.agent-runner.sandbox=true`, and workspace cleanup removes only canonical
+`attempt-<uuidv4>-<suffix>` directories below the configured workspace root.
+The managed egress proxy and unrelated filesystem entries are not cleanup
+targets.
+
+If orphan cleanup or interrupted finalization cannot be confirmed, startup
+reconciliation fails closed and polling does not begin. There is no blind Agent
+retry and no blind Redmine write retry. A later Controller startup may retry the
+state reconciliation while Redmine still says `Agent Running`.
+
+Recovery diagnostics cross the same reusable Phase 48-5 redaction component
+before any injected diagnostic sink sees them. If redaction itself fails, raw
+content is suppressed. Phase 48-6 does not add S3/artifact inspection; Phase 49
+owns durable artifact persistence and later artifact-aware reconciliation.

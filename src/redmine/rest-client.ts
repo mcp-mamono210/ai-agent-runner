@@ -91,6 +91,52 @@ export class RedmineRestClient {
     });
   }
 
+  async listIssuesByCustomField(input: {
+    readonly projectId: number;
+    readonly customFieldId: number;
+    readonly value: string;
+    readonly limit: number;
+  }): Promise<readonly RedmineIssueListItem[]> {
+    assertPositiveInteger(input.projectId, "projectId");
+    assertPositiveInteger(input.customFieldId, "customFieldId");
+    assertPositiveInteger(input.limit, "limit");
+    if (input.limit > 100) {
+      throw new Error("Redmine custom-field query limit must not exceed 100");
+    }
+    if (input.value.trim() === "") {
+      throw new Error("Redmine custom-field query value must not be blank");
+    }
+
+    const params = new URLSearchParams({
+      project_id: String(input.projectId),
+      status_id: "*",
+      limit: String(input.limit),
+      sort: "id:asc",
+      [`cf_${input.customFieldId}`]: input.value,
+    });
+    const payload = await this.#requestJson(
+      "GET",
+      `/issues.json?${params.toString()}`,
+      "read",
+    );
+    const root = asRecord(payload, "issues response");
+    if (root.total_count !== undefined) {
+      const totalCount = positiveOrZeroInteger(root.total_count, "issues response.total_count");
+      if (totalCount > input.limit) {
+        throw new Error("Redmine custom-field query exceeded the bounded recovery limit");
+      }
+    }
+    const issues = asArray(root.issues, "issues response.issues");
+    return issues.map((entry, index) => {
+      const issue = asRecord(entry, `issues[${index}]`);
+      const project = asRecord(issue.project, `issues[${index}].project`);
+      return {
+        id: positiveInteger(issue.id, `issues[${index}].id`),
+        projectId: positiveInteger(project.id, `issues[${index}].project.id`),
+      };
+    });
+  }
+
   async getIssue(issueId: number): Promise<RedmineIssueRecord> {
     assertPositiveInteger(issueId, "issueId");
     const params = new URLSearchParams({ include: "journals,relations,children" });
@@ -298,6 +344,14 @@ function stringValue(value: unknown, path: string): string {
     throw new Error(`Invalid Redmine response at ${path}: expected string`);
   }
   return value;
+}
+
+function positiveOrZeroInteger(value: unknown, path: string): number {
+  const parsed = integerValue(value, path);
+  if (parsed < 0) {
+    throw new Error(`Invalid Redmine response at ${path}: expected non-negative integer`);
+  }
+  return parsed;
 }
 
 function positiveInteger(value: unknown, path: string): number {
