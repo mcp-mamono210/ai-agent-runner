@@ -1,7 +1,9 @@
 import {
   PHASE49_ARTIFACT_FORMAT_VERSION,
+  PHASE49_REQUIRED_METADATA_KEYS,
   PHASE49_S3_CHECKSUM_ALGORITHM,
   PHASE49_S3_CHECKSUM_TYPE,
+  buildPhase49Artifact,
   verifyPhase49ArtifactBody,
   verifyPhase49ArtifactHead,
   type Phase49ArtifactEnvelopeDocument,
@@ -18,6 +20,16 @@ export interface Phase49S3RuntimeConfig {
   readonly bucket: string;
   readonly prefix: string;
   readonly expectedBucketOwner?: string;
+}
+
+export interface Phase49ArtifactIdentity {
+  readonly executionId: string;
+  readonly issueId: number;
+  readonly repository: string;
+  readonly sourceRevision: string;
+  readonly briefRevision: number;
+  readonly persistedRevision: string;
+  readonly requirementsFingerprint: string;
 }
 
 export interface Phase49S3PutInput {
@@ -91,6 +103,12 @@ export interface Phase49PersistedArtifact {
   readonly key: string;
   readonly artifactReference: string;
   readonly adoptedExistingObject: boolean;
+}
+
+export interface Phase49RecoveredArtifact {
+  readonly artifact: Phase49BuiltArtifact;
+  readonly persisted: Phase49PersistedArtifact;
+  readonly document: Phase49ArtifactEnvelopeDocument;
 }
 
 export function loadPhase49S3RuntimeConfig(
@@ -229,6 +247,71 @@ export class Phase49S3ArtifactPersistence {
     return verifyPhase49ArtifactBody(observed.body, expected);
   }
 
+  /**
+   * Recovers an already-durable artifact using only the immutable started
+   * execution identity. This is the Phase 49-5 restart path: no workspace,
+   * local patch, ListBucket operation, or Agent retry participates.
+   */
+  async recoverAndVerify(identity: Phase49ArtifactIdentity): Promise<Phase49RecoveredArtifact> {
+    assertRecoveryIdentity(identity);
+    const key = phase49ArtifactObjectKey(this.#config, identity.executionId);
+    const head = await this.#client.headObject({
+      bucket: this.#config.bucket,
+      key,
+      checksumMode: "ENABLED",
+      ...ownerOption(this.#config),
+    });
+    assertRecoveryObservationPresence(head);
+
+    const get = await this.#client.getObject({
+      bucket: this.#config.bucket,
+      key,
+      checksumMode: "ENABLED",
+      ...ownerOption(this.#config),
+    });
+    assertRecoveryObservationPresence(get);
+    if (head.checksumSha256Base64 !== get.checksumSha256Base64) {
+      throw new Error("Phase 49 recovered artifact Head/Get checksum mismatch");
+    }
+
+    const document = verifyPhase49ArtifactBody(get.body);
+    assertRecoveredIdentity(document, identity);
+
+    // Rebuild only after the fetched body has passed canonical parse and patch
+    // checksum verification. This is full-body recovery validation, not an
+    // idempotency prerequisite for conditional PutObject conflict handling.
+    const artifact = buildPhase49Artifact({
+      executionId: document.manifest.executionId,
+      issueId: document.manifest.issueId,
+      repository: document.manifest.repository,
+      sourceRevision: document.manifest.sourceRevision,
+      briefRevision: document.manifest.briefRevision,
+      persistedRevision: document.manifest.persistedRevision,
+      requirementsFingerprint: document.manifest.requirementsFingerprint,
+      outcome: document.manifest.outcome,
+      changedFiles: document.manifest.changedFiles,
+      patch: {
+        text: document.patch,
+        capturedBytes: Buffer.byteLength(document.patch, "utf8"),
+        truncated: false,
+      },
+    });
+
+    assertS3StorageObservation(artifact, head);
+    assertS3StorageObservation(artifact, get);
+    if (Buffer.compare(Buffer.from(artifact.body), Buffer.from(get.body)) !== 0) {
+      throw new Error("Phase 49 recovered artifact body differs from canonical builder output");
+    }
+
+    const persisted = Object.freeze({
+      bucket: this.#config.bucket,
+      key,
+      artifactReference: formatPhase49ArtifactReference(this.#config.bucket, key),
+      adoptedExistingObject: true,
+    });
+    return Object.freeze({ artifact, persisted, document });
+  }
+
   async #confirmByHead(artifact: Phase49BuiltArtifact, key: string): Promise<void> {
     const observed = await this.#client.headObject({
       bucket: this.#config.bucket,
@@ -264,6 +347,75 @@ function assertS3StorageObservation(
     checksumSha256Base64: observed.checksumSha256Base64,
     metadata: observed.metadata,
   });
+}
+
+function assertRecoveryObservationPresence(observed: Phase49S3ObjectObservation): void {
+  if (observed.serverSideEncryption !== PHASE49_S3_SERVER_SIDE_ENCRYPTION) {
+    throw new Error("Phase 49 recovered artifact is not confirmed with SSE-S3 AES256");
+  }
+  if (observed.versionId !== undefined && observed.versionId !== null) {
+    throw new Error("Phase 49 recovered artifact bucket versioning baseline is not disabled");
+  }
+  if (observed.checksumType !== PHASE49_S3_CHECKSUM_TYPE) {
+    throw new Error("Phase 49 recovered artifact checksum type is missing or is not FULL_OBJECT");
+  }
+  if (!isPresent(observed.checksumSha256Base64)) {
+    throw new Error("Phase 49 recovered artifact ChecksumSHA256 is missing");
+  }
+  if (observed.metadata === undefined || observed.metadata === null) {
+    throw new Error("Phase 49 recovered artifact metadata projection is missing");
+  }
+  const keys = Object.keys(observed.metadata).sort();
+  const expectedKeys = [...PHASE49_REQUIRED_METADATA_KEYS].sort();
+  if (keys.length !== expectedKeys.length || keys.some((key, index) => key !== expectedKeys[index])) {
+    throw new Error("Phase 49 recovered artifact metadata field set mismatch");
+  }
+  for (const key of PHASE49_REQUIRED_METADATA_KEYS) {
+    const value = observed.metadata[key];
+    if (!isPresent(value)) {
+      throw new Error(`Phase 49 recovered artifact required metadata is missing: ${key}`);
+    }
+  }
+}
+
+function assertRecoveredIdentity(
+  document: Phase49ArtifactEnvelopeDocument,
+  identity: Phase49ArtifactIdentity,
+): void {
+  const manifest = document.manifest;
+  if (
+    manifest.executionId !== identity.executionId ||
+    manifest.issueId !== identity.issueId ||
+    manifest.repository !== identity.repository ||
+    manifest.sourceRevision !== identity.sourceRevision ||
+    manifest.briefRevision !== identity.briefRevision ||
+    manifest.persistedRevision !== identity.persistedRevision ||
+    manifest.requirementsFingerprint !== identity.requirementsFingerprint
+  ) {
+    throw new Error("Phase 49 recovered artifact identity does not match Agent Running execution");
+  }
+}
+
+function assertRecoveryIdentity(identity: Phase49ArtifactIdentity): void {
+  if (!isLowercaseUuidV4(identity.executionId)) {
+    throw new Error("Phase 49 recovery execution_id must be a lowercase UUIDv4");
+  }
+  if (!Number.isSafeInteger(identity.issueId) || identity.issueId <= 0) {
+    throw new Error("Phase 49 recovery issueId must be a positive safe integer");
+  }
+  if (!Number.isSafeInteger(identity.briefRevision) || identity.briefRevision <= 0) {
+    throw new Error("Phase 49 recovery briefRevision must be a positive safe integer");
+  }
+  for (const [name, value] of [
+    ["repository", identity.repository],
+    ["sourceRevision", identity.sourceRevision],
+    ["persistedRevision", identity.persistedRevision],
+    ["requirementsFingerprint", identity.requirementsFingerprint],
+  ] as const) {
+    if (value.trim() === "") {
+      throw new Error(`Phase 49 recovery ${name} must not be blank`);
+    }
+  }
 }
 
 function assertArtifactCompatible(artifact: Phase49BuiltArtifact): void {
@@ -310,6 +462,10 @@ function normalizePrefix(raw: string): string {
     throw new Error("AGENT_RUNNER_ARTIFACT_S3_PREFIX must be a bounded lowercase ASCII S3 key prefix");
   }
   return value;
+}
+
+function isPresent(value: string | null | undefined): value is string {
+  return value !== undefined && value !== null && value !== "";
 }
 
 function isLowercaseUuidV4(value: string): boolean {
