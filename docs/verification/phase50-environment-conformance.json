@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "testedGitRevision": "b8d506a961c77d97c7c77ae182e062de85b5e6a6",
-  "generatedAt": "2026-09-21T12:19:13.296Z",
+  "testedGitRevision": "23c2b56bb640850aa2504f70bec9799ea8e71f7e",
+  "generatedAt": "2026-09-21T12:47:16.950Z",
   "findings": [
     {
       "id": "sandbox.engine-version",
