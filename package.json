@@ -12,7 +12,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "npm run build && node --test dist/tests/unit/*.test.js",
     "verify:phase49:s3": "npm run build && node dist/src/verification/phase49-real-s3.js",
-    "test:integration:phase49": "npm run build && node --test dist/tests/integration/phase49-s3-compatible.test.js"
+    "test:integration:phase49": "npm run build && node --test dist/tests/integration/phase49-s3-compatible.test.js",
+    "verify:phase50:conformance": "npm run build && node dist/src/verification/phase50-environment-conformance.js",
+    "test:integration:phase50": "npm run build && node --test dist/tests/integration/phase50-*.test.js",
+    "setup:phase50:sandbox": "bash scripts/phase50/setup-sandbox-conformance.sh",
+    "teardown:phase50:sandbox": "bash scripts/phase50/teardown-sandbox-conformance.sh",
+    "verify:phase50:environment": "bash scripts/phase50/run-environment-conformance.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1136.0"

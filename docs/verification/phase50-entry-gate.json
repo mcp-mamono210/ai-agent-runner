@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-09-21",
+  "phase50_1": {
+    "issueId": 5425,
+    "status": "closed",
+    "mergeRevision": "aa60d3fb044a786fa35763f531d4d5db7b9a919d"
+  },
+  "openBlockingDefectIssueIds": [],
+  "expectedFailureRegistry": "docs/verification/phase50-expected-failures.json"
+}

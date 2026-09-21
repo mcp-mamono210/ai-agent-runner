@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "testedGitRevision": "aa60d3fb044a786fa35763f531d4d5db7b9a919d",
+  "generatedAt": "2026-09-21T09:36:05.220Z",
+  "findings": [
+    {
+      "id": "sandbox.engine-version",
+      "surface": "sandbox",
+      "requirement": "container engine implementation and version are recorded",
+      "classification": "compatible",
+      "evidence": [
+        "engine=Docker Engine - Community",
+        "version=29.5.2",
+        "os=Ubuntu 24.04.4 LTS",
+        "kernel=6.8.0-117-generic"
+      ]
+    },
+    {
+      "id": "sandbox.cgroup-observation",
+      "surface": "sandbox",
+      "requirement": "cgroup/resource-control availability is recorded without inventing CPU/memory contract requirements",
+      "classification": "different-contract-neutral",
+      "evidence": [
+        "cgroupDriver=cgroupfs",
+        "cgroupVersion=unknown",
+        "current SandboxResourceLimits does not define CPU or memory quota fields"
+      ],
+      "coverageRoute": "E",
+      "coverageExecuted": true,
+      "coverageEvidence": [
+        "CPU/memory are observational for Phase 50-2 because the current canonical runtime limit surface does not require them"
+      ]
+    },
+    {
+      "id": "sandbox.output-capture",
+      "surface": "sandbox",
+      "requirement": "captured output is finite and truncation is observable",
+      "classification": "compatible",
+      "evidence": [
+        "BoundedUtf8Capture limited 8 input bytes to 4 bytes and set truncated=true"
+      ]
+    },
+    {
+      "id": "sandbox.workspace-disk",
+      "surface": "sandbox",
+      "requirement": "workspace disk limit is mechanically enforced",
+      "classification": "compatible",
+      "evidence": [
+        "TaskWorkspace rejected an 8-byte file against a 4-byte configured disk limit"
+      ]
+    },
+    {
+      "id": "sandbox.execution-timeout",
+      "surface": "sandbox",
+      "requirement": "execution timeout produces an AbortSignal rather than an unbounded execution",
+      "classification": "compatible",
+      "evidence": [
+        "SandboxResourcePolicy execution timeout signal aborted within the deterministic measurement window"
+      ]
+    },
+    {
+      "id": "sandbox.container-lifecycle",
+      "surface": "sandbox",
+      "requirement": "container lifecycle enforcement removes the sandbox even without downstream completion",
+      "classification": "different-contract-affecting",
+      "evidence": [
+        "lifecycle enforcement depends on Agent Runner timer semantics rather than a Docker daemon quota"
+      ],
+      "coverageRoute": "B",
+      "coverageExecuted": true,
+      "coverageEvidence": [
+        "DockerSandboxRuntime production lifecycle timer aborted and removed the sandbox through a deterministic DockerCommandRunner seam"
+      ]
+    },
+    {
+      "id": "sandbox.network-policy",
+      "surface": "sandbox",
+      "requirement": "configured network is internal and managed egress proxy is running",
+      "classification": "compatible",
+      "evidence": [
+        "network=phase50-conformance-egress internal=true",
+        "networkPolicyDigestMatch=true",
+        "proxy=phase50-conformance-egress-proxy running=true",
+        "proxyManaged=true",
+        "proxyPolicyDigestMatch=true",
+        "proxyAttachedToNetwork=true",
+        "directEgressDenied=true",
+        "allowedProxyStatus=200",
+        "deniedProxyStatus=403"
+      ]
+    },
+    {
+      "id": "sandbox.nested-container",
+      "surface": "sandbox",
+      "requirement": "nested-container and CI restrictions are recorded rather than assumed equivalent",
+      "classification": "different-contract-neutral",
+      "evidence": [
+        "nestedContainer=false",
+        "ci=false",
+        "securityOptions=name=apparmor,name=seccomp,profile=builtin,name=cgroupns"
+      ],
+      "coverageRoute": "E",
+      "coverageExecuted": true,
+      "coverageEvidence": [
+        "environment difference is recorded; contract-affecting network/resource semantics are covered by separate findings"
+      ]
+    },
+    {
+      "id": "s3.if-none-match",
+      "surface": "s3",
+      "requirement": "If-None-Match:* rejects an existing deterministic object",
+      "classification": "compatible",
+      "evidence": [
+        "second conditional PutObject returned conflict"
+      ]
+    },
+    {
+      "id": "s3.full-object-checksum",
+      "surface": "s3",
+      "requirement": "SHA-256 FULL_OBJECT checksum is returned and equals the uploaded artifact checksum",
+      "classification": "compatible",
+      "evidence": [
+        "Head checksumType=FULL_OBJECT checksumMatch=true"
+      ]
+    },
+    {
+      "id": "s3.head-checksum-mode",
+      "surface": "s3",
+      "requirement": "HeadObject ChecksumMode=ENABLED exposes ChecksumSHA256",
+      "classification": "compatible",
+      "evidence": [
+        "Head ChecksumSHA256 present=true"
+      ]
+    },
+    {
+      "id": "s3.get-checksum-mode",
+      "surface": "s3",
+      "requirement": "GetObject ChecksumMode=ENABLED exposes ChecksumSHA256 and exact body",
+      "classification": "compatible",
+      "evidence": [
+        "Get checksumMatch=true bodyRoundTrip=true"
+      ]
+    },
+    {
+      "id": "s3.metadata-normalization",
+      "surface": "s3",
+      "requirement": "required metadata keys are lowercase kebab-case",
+      "classification": "compatible",
+      "evidence": [
+        "observed metadata keys=artifact-format-version,brief-revision,execution-id,issue-id,outcome,patch-checksum,persisted-revision,repository,requirements-fingerprint,source-revision"
+      ]
+    },
+    {
+      "id": "s3.metadata-round-trip",
+      "surface": "s3",
+      "requirement": "required metadata fields round-trip with exact logical values",
+      "classification": "compatible",
+      "evidence": [
+        "metadataRoundTrip=true"
+      ]
+    },
+    {
+      "id": "s3.sse-s3",
+      "surface": "s3",
+      "requirement": "SSE-S3 AES256 is observed on the stored object",
+      "classification": "compatible",
+      "evidence": [
+        "serverSideEncryption=AES256"
+      ]
+    }
+  ]
+}
