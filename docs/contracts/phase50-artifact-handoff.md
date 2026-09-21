@@ -1,7 +1,8 @@
 # Phase 50 Artifact Handoff Contract
 
 This document fixes the Phase 49 -> Phase 50 artifact boundary established by
-Redmine issue #5422. Phase 50 consumes the existing Phase 49 single-object
+Redmine issue #5422 and closes the Phase 50 artifact handoff decisions through
+Phase 50-8 (#5432). Phase 50 consumes the existing Phase 49 single-object
 architecture; it does not introduce another artifact format or storage SoT.
 
 ## Durable inputs available to Phase 50
@@ -80,11 +81,66 @@ Controller interruption + invalid/unreadable/unverifiable artifact
   -> never successful reconciliation
 ```
 
-## Phase 50 decisions still open
+## Phase 50-7 restore closure
 
-Phase 50 may decide how long real-S3 verification remains a release gate and how
-artifact restore is integrated into independent verification. It must not change
-these Phase 49 decisions without an explicit contract revision:
+Phase 50-7 closes the restore behavior that Phase 49 handed forward:
+
+```text
+clean checkout
++ exact source_revision
++ durable artifact
+-> canonical artifact verification
+-> patch checksum verification
+-> exact serialized patch extraction
+-> git apply --check
+-> change-set restore
+```
+
+Restore does not retarget to a mutable branch HEAD and does not require the
+original Workspace. `no_changes` is restored and verified through the same
+non-absent durable artifact path.
+
+An invalid artifact remains an independent-verification failure. Phase 50 does
+not reinterpret an invalid artifact as PASS merely because Redmine already holds
+`Ready for Independent Verification`, and it does not introduce a new lifecycle
+rollback writer in the restore path.
+
+## Phase 50-8 continuation policy
+
+The real infrastructure policy is fixed in:
+
+```text
+docs/verification/phase50-real-infrastructure-policy.json
+```
+
+Real private S3 verification is **mandatory per system release**. The existing
+real-S3 verifier remains the release evidence source:
+
+```bash
+npm run verify:phase49:s3
+```
+
+Change-triggered or scheduled real-S3 runs may be added as supplemental evidence,
+but they do not replace the system-release gate. This keeps conditional-write,
+FULL_OBJECT checksum, metadata, IAM, encryption, and lifecycle drift observable
+even when application source has not changed in the same area.
+
+The sandbox/environment gate is also required for the system release:
+
+```bash
+npm run verify:phase50:environment
+```
+
+The committed conformance record currently has no unresolved production-equivalent
+contract gap. If a future conformance record contains `incompatible`,
+`unsupported`, or `different-contract-affecting` semantics, the applicable
+coverage route A-D must be executed and evidenced before release PASS. Mandatory
+semantics are never silently skipped.
+
+## Fixed Phase 49 decisions
+
+Phase 50 verification and Phase 51 release preparation must not change these
+Phase 49 decisions without an explicit contract revision:
 
 ```text
 single-object artifact
@@ -98,3 +154,10 @@ no ListBucket requirement
 no Controller DeleteObject permission
 no automatic Agent retry
 ```
+
+## Phase 51 handoff boundary
+
+Phase 51 consumes the verified Phase 50 boundary. It may perform release
+preparation and cross-component compatibility verification, but it does not use
+this handoff as authority to redesign execution identity, lifecycle ownership,
+artifact format, storage SoT, or restore semantics.

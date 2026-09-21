@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "issueId": 5432,
+  "decisionDate": "2026-09-21",
+  "realS3": {
+    "policy": "mandatory-per-system-release",
+    "releaseGateCommand": "npm run verify:phase49:s3",
+    "supplementalTriggers": [
+      "artifact contract change",
+      "S3 SDK or persistence implementation change",
+      "IAM policy or credential boundary change",
+      "bucket encryption or lifecycle configuration change"
+    ],
+    "rationale": [
+      "conditional write, checksum, metadata, IAM, encryption, and lifecycle behavior can drift independently of deterministic unit tests",
+      "the existing real private S3 verifier already records the tested Git revision and required AWS semantics",
+      "change-triggered or scheduled runs may supplement but do not replace the system-release gate"
+    ]
+  },
+  "sandbox": {
+    "policy": "mandatory-environment-conformance-per-system-release",
+    "releaseGateCommand": "npm run verify:phase50:environment",
+    "currentUnresolvedProductionEquivalentGap": false,
+    "contractAffectingDifferenceRule": "alternate coverage route A-D must be executed and evidenced before release PASS",
+    "dedicatedProductionEquivalentVerification": "required when the conformance record contains an unresolved incompatible, unsupported, or different-contract-affecting finding"
+  }
+}
