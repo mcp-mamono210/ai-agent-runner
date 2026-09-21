@@ -1,8 +1,12 @@
 export const READY_FOR_AGENT_LIFECYCLE = "Ready for Agent" as const;
 
+export const PRE_EXECUTION_REJECTION_OUTCOMES = Object.freeze([
+  "stale_requirements",
+  "eligibility_failed",
+] as const);
+
 export type PreExecutionRejectionOutcome =
-  | "stale_requirements"
-  | "eligibility_failed";
+  (typeof PRE_EXECUTION_REJECTION_OUTCOMES)[number];
 
 export interface ReadyForAgentCandidate {
   issueId: number;

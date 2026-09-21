@@ -3,12 +3,22 @@ import type { RepositoryCheckoutResult } from "../repository/types.js";
 import type { SandboxHandle, TaskWorkspace } from "../sandbox/types.js";
 import type { CaptureSnapshot } from "../sandbox/resource-policy.js";
 
-export type StartedExecutionFailureOutcome =
-  | "timeout"
-  | "agent_start_failed"
-  | "agent_failed";
+export const STARTED_EXECUTION_FAILURE_OUTCOMES = Object.freeze([
+  "timeout",
+  "agent_start_failed",
+  "agent_failed",
+] as const);
 
-export type ProvisionalExecutionOutcome = "changes_ready" | "no_changes";
+export type StartedExecutionFailureOutcome =
+  (typeof STARTED_EXECUTION_FAILURE_OUTCOMES)[number];
+
+export const PROVISIONAL_EXECUTION_OUTCOMES = Object.freeze([
+  "changes_ready",
+  "no_changes",
+] as const);
+
+export type ProvisionalExecutionOutcome =
+  (typeof PROVISIONAL_EXECUTION_OUTCOMES)[number];
 
 export interface AgentExecutionCapture {
   readonly text: string;

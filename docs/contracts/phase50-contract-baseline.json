@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "canonicalSources": [
+    {
+      "repository": "mcp-mamono210/redmine",
+      "revision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "path": "docs/contracts/agent-runner-execution-boundary-contract.md"
+    },
+    {
+      "repository": "mcp-mamono210/redmine",
+      "revision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "path": "docs/contracts/agent-runner-execution-input-contract.md"
+    },
+    {
+      "repository": "mcp-mamono210/redmine",
+      "revision": "facfacebd6854651721eb41aaff8cdb4e5a3cdfa",
+      "path": "docs/contracts/agent-runner-security-sandbox-contract.md"
+    },
+    {
+      "repository": "mcp-mamono210/ai-agent-runner",
+      "revision": "a1813f9a70dbec5a1a342669c3941e8521941006",
+      "path": "docs/phase48-final-verification.md"
+    },
+    {
+      "repository": "mcp-mamono210/ai-agent-runner",
+      "revision": "a1813f9a70dbec5a1a342669c3941e8521941006",
+      "path": "docs/contracts/phase49-artifact-contract.md"
+    },
+    {
+      "repository": "mcp-mamono210/ai-agent-runner",
+      "revision": "a1813f9a70dbec5a1a342669c3941e8521941006",
+      "path": "docs/contracts/phase49-s3-persistence.md"
+    },
+    {
+      "repository": "mcp-mamono210/ai-agent-runner",
+      "revision": "a1813f9a70dbec5a1a342669c3941e8521941006",
+      "path": "docs/phase49-final-verification.md"
+    }
+  ],
+  "executionLifecycles": [
+    "Ready for Agent",
+    "Agent Running",
+    "Ready for Independent Verification",
+    "Needs Human"
+  ],
+  "executionOutcomes": [
+    "changes_ready",
+    "no_changes",
+    "stale_requirements",
+    "eligibility_failed",
+    "interrupted",
+    "timeout",
+    "agent_start_failed",
+    "agent_failed",
+    "artifact_persistence_failed"
+  ],
+  "artifact": {
+    "formatVersion": "phase49.single.v1",
+    "singleObject": true,
+    "envelopeRequiredKeys": [
+      "manifest",
+      "patch"
+    ],
+    "manifestRequiredKeys": [
+      "artifactFormatVersion",
+      "briefRevision",
+      "changedFiles",
+      "executionId",
+      "issueId",
+      "outcome",
+      "patch",
+      "persistedRevision",
+      "repository",
+      "requirementsFingerprint",
+      "sourceRevision"
+    ],
+    "metadataRequiredKeys": [
+      "artifact-format-version",
+      "execution-id",
+      "issue-id",
+      "repository",
+      "source-revision",
+      "brief-revision",
+      "persisted-revision",
+      "requirements-fingerprint",
+      "outcome",
+      "patch-checksum"
+    ],
+    "metadataKeyRule": "lowercase-kebab-case",
+    "patchFormat": "git-diff-binary-v1",
+    "patchChecksumAlgorithm": "sha256",
+    "s3ChecksumAlgorithm": "SHA256",
+    "s3ChecksumType": "FULL_OBJECT",
+    "maximumArtifactSizeBytes": 8388608,
+    "uploadMode": "direct PutObject",
+    "conditionalWrite": "If-None-Match:*",
+    "deterministicObjectKey": "{prefix}/{execution_id}.json",
+    "serverSideEncryption": "AES256"
+  },
+  "iam": {
+    "requiredControllerActions": [
+      "s3:PutObject",
+      "s3:GetObject"
+    ],
+    "notRequiredControllerActions": [
+      "s3:DeleteObject",
+      "s3:ListBucket"
+    ]
+  }
+}
