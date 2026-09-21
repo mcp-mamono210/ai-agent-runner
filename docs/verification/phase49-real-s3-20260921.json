@@ -1,0 +1,63 @@
+{
+  "verificationDate": "2026-09-21T04:26:29.712Z",
+  "testedGitRevision": "a5174ccb0338d53dd51f087340e567b6dc89b1b9",
+  "artifactContractRevision": "phase49.single.v1",
+  "awsRegion": "ap-northeast-1",
+  "bucket": "mamono210",
+  "testPrefix": "mcp-mamono210/ai-agent-runner/phase49/verification/2026-09-21",
+  "artifactFormat": "phase49.single.v1",
+  "maximumArtifactSizeBytes": 8388608,
+  "uploadMode": "direct PutObject",
+  "checksum": "SHA-256 FULL_OBJECT",
+  "checksumMode": "ENABLED",
+  "metadataProjection": {
+    "keys": [
+      "artifact-format-version",
+      "execution-id",
+      "issue-id",
+      "repository",
+      "source-revision",
+      "brief-revision",
+      "persisted-revision",
+      "requirements-fingerprint",
+      "outcome",
+      "patch-checksum"
+    ],
+    "keyFormat": "lowercase kebab-case",
+    "valueEncoding": "ASCII-safe",
+    "measuredBytes": 653
+  },
+  "readBackStrategy": [
+    "HeadObject",
+    "GetObject"
+  ],
+  "conditionalWrite": "If-None-Match:*",
+  "encryption": "AES256",
+  "bucketKey": "not applicable for SSE-S3",
+  "retentionDays": 30,
+  "iamBoundaryAttested": true,
+  "expectedControllerActions": [
+    "s3:PutObject",
+    "s3:GetObject"
+  ],
+  "excludedControllerActions": [
+    "s3:DeleteObject",
+    "s3:ListBucket"
+  ],
+  "verifiedScenarios": [
+    "changes_ready direct conditional PutObject + HeadObject + GetObject",
+    "no_changes durable empty artifact",
+    "deterministic recovery without workspace or ListBucket",
+    "required metadata and SHA-256 checksum read-back",
+    "lowercase kebab-case metadata projection",
+    "incompatible second conditional PutObject rejected",
+    "ambiguous remote-success recovery adopts matching object",
+    "SSE-S3 AES256 and disabled-versioning observation"
+  ],
+  "artifactReferences": [
+    "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/verification/2026-09-21/fd515d33-4435-48b4-8cd7-37ce3dc85e1f.json",
+    "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/verification/2026-09-21/6a41a8ae-47c9-42e0-8f95-21ff921ea60d.json",
+    "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/verification/2026-09-21/186c81d5-5bf0-43dc-b3f3-a57b68f0fd51.json"
+  ],
+  "result": "PASS"
+}
