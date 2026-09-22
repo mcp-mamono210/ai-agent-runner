@@ -6,7 +6,43 @@ This repository is intentionally separate from `mcp-mamono210/redmine`. The
 Redmine MCP repository remains the approval/control plane and owns the canonical
 cross-component contracts.
 
-## Phase 48-1 scope
+## Current Phase 50 completion / Phase 51 RC boundary
+
+Phase 50 verification is complete. The current v0.4.0 system-milestone
+functional boundary implemented by Agent Runner is:
+
+```text
+Ready for Agent
+-> safe one-shot Agent execution
+-> durable immutable artifact
+-> Ready for Independent Verification
+```
+
+The component package version remains an independent Agent Runner identity; the
+system milestone number is not a component-version selection rule. Phase 51 RC
+evidence is canonical in `mcp-mamono210/redmine`; this README only describes the
+component boundary and points to repository-local verification support.
+
+Current v0.4.0 out of scope remains:
+
+```text
+Git remote push
+CircleCI / CI feedback loop
+Agent correction loop
+automatic Agent retry
+Pull Request automation
+automatic merge
+deployment automation
+multiple Workers / Runner instances
+distributed execution
+```
+
+Phase 50 release-quality and environment verification remain defined by the
+repository's existing Phase 50 verification surfaces. Phase 51 verification-only
+probes live under `scripts/phase51/` and do not become a second runtime or
+compatibility Source of Truth.
+
+## Phase 48-1 historical implementation slice
 
 The runtime implements the Controller entry boundary required by Redmine issue
 #5410:
@@ -25,10 +61,11 @@ Controller startup
 -> Phase 48-2 handoff
 ```
 
-It deliberately does **not** implement credentialed source-repository access,
-exact source revision resolution, formal Phase 47 authorization, `execution_id`,
-`Agent Running`, sandbox creation, or Agent invocation. Those remain later Phase
-48 responsibilities.
+At Phase 48-1 this slice deliberately did **not** implement credentialed
+source-repository access, exact source revision resolution, formal Phase 47
+authorization, `execution_id`, `Agent Running`, sandbox creation, or Agent
+invocation. Those responsibilities are implemented by the later Phase 48
+sections documented below.
 
 ## Local-lock decision
 
@@ -117,7 +154,6 @@ The caller still supplies:
 
 - `StartupReconciler` — concrete recovery is owned by Phase 48-6;
 - `EligibleCandidateHandler` — the continuation is owned by Phase 48-2 onward.
-
 This keeps the #5410 boundary executable without silently pre-implementing later
 Phase responsibilities.
 
