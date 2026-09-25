@@ -6,15 +6,30 @@ This repository is intentionally separate from `mcp-mamono210/redmine`. The
 Redmine MCP repository remains the approval/control plane and owns the canonical
 cross-component contracts.
 
-## Current Phase 52 system-release preparation boundary
+## Current v0.4.0 system release boundary
 
-Phase 50 verification and the Phase 51 RC / cross-component compatibility
-closure are complete. Phase 52-1 Real Private S3 and Phase 52-2 Environment
-Conformance system-release gates are PASS. Phase 52-3 prepares and dry-run
-validates the system-release inputs; it does not declare v0.4.0 Released.
+The `v0.4.0` system milestone is Released as `system-v0.4.0` in
+`mcp-mamono210/redmine`.
 
-The current v0.4.0 system-milestone functional boundary implemented by Agent
-Runner is:
+Canonical system release evidence generation:
+
+```text
+sha256:b1ffbad2e092b371d0ce1e9c1d8dfc0c144104b382243a031e8e9b73181d658a
+```
+
+Compatible component identities:
+
+```text
+Redmine MCP
+  componentVersion: 0.3.0
+  exactSourceRevision: 2b2bd1c42f1caaf876da02da0adc67dd698ddff4
+
+Agent Runner
+  componentVersion: 0.0.0
+  exactSourceRevision: bc4e58a2f9986b88a7eb84b191d85824c926f9f7
+```
+
+The released system functional boundary is:
 
 ```text
 Ready for Agent
@@ -23,11 +38,11 @@ Ready for Agent
 -> Ready for Independent Verification
 ```
 
-The component package version remains an independent Agent Runner identity; the
-system milestone number is not a component-version selection rule. Canonical
-Phase 51 compatibility and Phase 52 system-release preparation evidence remain
-owned by `mcp-mamono210/redmine`; this README describes the Agent Runner
-component boundary and repository-local verification support.
+The Agent Runner component version remains independently selected; the system
+milestone tag is owned by the Redmine repository and is not an Agent Runner
+component tag. Canonical Phase 51 compatibility and Phase 52 system-release
+evidence remain owned by `mcp-mamono210/redmine`; this README describes the
+Agent Runner component boundary and repository-local verification support.
 
 Current v0.4.0 out of scope remains:
 
@@ -46,20 +61,17 @@ multiple Workers / Runner instances
 distributed execution
 ```
 
-The current RC includes the production runtime composition / dependency
-assembly needed by the one-shot execution path, including S3 artifact
-persistence. It does not provide an accepted resident-service startup surface:
-the package has no release-owned executable startup entry point, service
-supervision / deployment definition, or dedicated GCE deployment acceptance.
+The current release combination has the production runtime composition /
+dependency assembly needed by the one-shot execution path, including S3 artifact
+persistence. It is not a resident production-service deployment release: an
+accepted executable startup entry point, service supervision / deployment
+definition, and dedicated GCE deployment acceptance remain deferred.
 
-This does not change the architecture boundary: Agent Runner remains a separate
-repository and the target deployment architecture remains a separate GCE VM.
-For v0.4.0, credential acceptance covers design / implementation ownership and
-non-exposure separation. Verification that the deployed Redmine/MCP principal
-identity differs from the deployed Agent Runner principal identity is deferred
-to a later Deployment / Operations release. That release must capture credential
-source / principal identity / injection-boundary evidence and rerun the
-Environment Conformance Gate on the actual deployment host.
+The separate-GCE architecture boundary remains unchanged. v0.4.0 credential
+acceptance covers design / implementation ownership and non-exposure separation.
+Actual deployed Redmine/MCP versus Agent Runner principal identity separation,
+credential source / injection evidence, and an Environment Conformance Gate
+rerun on the actual deployment host remain later Deployment / Operations work.
 
 Phase 50 release-quality and environment verification remain defined by the
 repository's existing Phase 50 verification surfaces. Phase 51 verification-only

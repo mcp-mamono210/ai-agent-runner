@@ -13,10 +13,10 @@ All notable Agent Runner changes are recorded here.
 
 ### Changed
 
-- Updated component documentation to describe the Phase 50-complete v0.4.0 system-milestone boundary rather than the historical Phase 48-1-only slice.
-- Prepared the Phase 52-3 system-release documentation boundary after the Phase 52-1 Real Private S3 and Phase 52-2 Environment Conformance gates passed, without declaring v0.4.0 Released.
-- Clarified that the current RC has production runtime composition / dependency assembly but no accepted resident-service startup surface, service supervision / deployment definition, or dedicated GCE deployment acceptance.
-- Clarified that v0.4.0 credential acceptance covers design / implementation ownership and non-exposure separation, while deployed credential / principal identity separation and deployment-host Environment Conformance rerun remain later Deployment / Operations responsibilities.
+- Recorded the released `v0.4.0` system milestone identified by Redmine repository tag `system-v0.4.0` and canonical evidence generation `sha256:b1ffbad2e092b371d0ce1e9c1d8dfc0c144104b382243a031e8e9b73181d658a`.
+- Recorded the compatible Redmine MCP identity as `0.3.0` at `2b2bd1c42f1caaf876da02da0adc67dd698ddff4` and Agent Runner identity as `0.0.0` at `bc4e58a2f9986b88a7eb84b191d85824c926f9f7` while keeping Agent Runner component versioning independent.
+- Kept the system functional boundary at `Ready for Independent Verification`.
+- Clarified that this release is not a resident production-service deployment release; executable startup, service supervision / deployment definition, dedicated GCE deployment acceptance, deployed principal separation, and deployment-host Environment Conformance remain deferred.
 
 ### Release boundary
 
