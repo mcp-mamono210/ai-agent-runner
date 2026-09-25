@@ -14,6 +14,9 @@ All notable Agent Runner changes are recorded here.
 ### Changed
 
 - Updated component documentation to describe the Phase 50-complete v0.4.0 system-milestone boundary rather than the historical Phase 48-1-only slice.
+- Prepared the Phase 52-3 system-release documentation boundary after the Phase 52-1 Real Private S3 and Phase 52-2 Environment Conformance gates passed, without declaring v0.4.0 Released.
+- Clarified that the current RC has production runtime composition / dependency assembly but no accepted resident-service startup surface, service supervision / deployment definition, or dedicated GCE deployment acceptance.
+- Clarified that v0.4.0 credential acceptance covers design / implementation ownership and non-exposure separation, while deployed credential / principal identity separation and deployment-host Environment Conformance rerun remain later Deployment / Operations responsibilities.
 
 ### Release boundary
 
@@ -26,6 +29,8 @@ Ready for Agent
 -> Ready for Independent Verification
 ```
 
-The following remain outside the v0.4.0 system-milestone scope: Git remote push, CI feedback to the Agent, Agent correction/retry loops, Pull Request automation, merge/deploy automation, and distributed/multi-worker execution.
+The following remain outside the v0.4.0 system-milestone scope: Git remote push, CI feedback to the Agent, Agent correction/retry loops, Pull Request automation, merge/deploy automation, resident production-service startup / supervision, dedicated GCE deployment acceptance, deployment-time credential / principal identity verification, and distributed/multi-worker execution.
+
+The separate-GCE architecture boundary remains unchanged. Deployment acceptance and actual deployed principal separation are deferred responsibilities, not claims made by the v0.4.0 system milestone.
 
 The Agent Runner component version remains independently selected. This changelog does not make the v0.4.0 system milestone a component-version identity.
