@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "recordType": "phase52-real-s3-system-release-gate-raw",
+  "testedSourceRevision": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7",
+  "executionHost": {
+    "hostProvider": "local-macos",
+    "uname": {
+      "sysname": "Darwin",
+      "kernelRelease": "24.6.0",
+      "machine": "x86_64"
+    },
+    "nodeVersion": "24.19.0",
+    "npmVersion": "11.17.0",
+    "awsCliVersion": "aws-cli/2.34.30 Python/3.14.4 Darwin/24.6.0 exe/x86_64",
+    "dockerClientVersion": "29.7.2",
+    "dockerServerVersion": "29.5.2"
+  },
+  "awsPrincipal": {
+    "roleName": "Phase52AgentRunnerController",
+    "normalizedPrincipalArnSha256": "sha256:4b2aa66b620fc042ca52e4300233b89caf0a138f9a21bda2694af3c094f92176"
+  },
+  "iamAttestationResult": "PASS",
+  "iamNegativeVerification": {
+    "artifactPrefix": "mcp-mamono210/ai-agent-runner/phase49/artifacts",
+    "deleteObject": {
+      "result": "PASS",
+      "expectedError": "AccessDenied",
+      "probeKeySha256": "sha256:eb392a4d09413f244be3ee74de0bd0c82a8b913340fe242f6c24b65a19cda3f1"
+    },
+    "listBucket": {
+      "result": "PASS",
+      "expectedError": "AccessDenied"
+    }
+  },
+  "phase49VerifierRecord": {
+    "sha256": "sha256:f82faaf17f07f41f6626b78a22bab6d7fee97e2654dc7f167f9c251ad0f6965e",
+    "record": {
+      "verificationDate": "2026-09-25T02:52:26.384Z",
+      "testedGitRevision": "bc4e58a2f9986b88a7eb84b191d85824c926f9f7",
+      "artifactContractRevision": "phase49.single.v1",
+      "awsRegion": "ap-northeast-1",
+      "bucket": "mamono210",
+      "testPrefix": "mcp-mamono210/ai-agent-runner/phase49/artifacts",
+      "artifactFormat": "phase49.single.v1",
+      "maximumArtifactSizeBytes": 8388608,
+      "uploadMode": "direct PutObject",
+      "checksum": "SHA-256 FULL_OBJECT",
+      "checksumMode": "ENABLED",
+      "metadataProjection": {
+        "keys": [
+          "artifact-format-version",
+          "execution-id",
+          "issue-id",
+          "repository",
+          "source-revision",
+          "brief-revision",
+          "persisted-revision",
+          "requirements-fingerprint",
+          "outcome",
+          "patch-checksum"
+        ],
+        "keyFormat": "lowercase kebab-case",
+        "valueEncoding": "ASCII-safe",
+        "measuredBytes": 653
+      },
+      "readBackStrategy": [
+        "HeadObject",
+        "GetObject"
+      ],
+      "conditionalWrite": "If-None-Match:*",
+      "encryption": "AES256",
+      "bucketKey": "not applicable for SSE-S3",
+      "retentionDays": 30,
+      "iamBoundaryAttested": true,
+      "expectedControllerActions": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "excludedControllerActions": [
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "verifiedScenarios": [
+        "changes_ready direct conditional PutObject + HeadObject + GetObject",
+        "no_changes durable empty artifact",
+        "deterministic recovery without workspace or ListBucket",
+        "required metadata and SHA-256 checksum read-back",
+        "lowercase kebab-case metadata projection",
+        "incompatible second conditional PutObject rejected",
+        "ambiguous remote-success recovery adopts matching object",
+        "SSE-S3 AES256 and disabled-versioning observation"
+      ],
+      "artifactReferences": [
+        "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/artifacts/5811a427-25ee-47aa-bc81-02e0e3323ae9.json",
+        "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/artifacts/cca19af8-7f9b-4c22-9178-7b6f2d76608e.json",
+        "s3://mamono210/mcp-mamono210/ai-agent-runner/phase49/artifacts/692e4e82-06a7-44fd-adc3-96e7da5714c3.json"
+      ],
+      "result": "PASS"
+    }
+  },
+  "checkoutClean": true,
+  "result": "PASS",
+  "verifiedAt": "2026-09-25T02:52:15.605Z"
+}
