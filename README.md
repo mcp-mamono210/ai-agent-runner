@@ -78,6 +78,18 @@ repository's existing Phase 50 verification surfaces. Phase 51 verification-only
 probes live under `scripts/phase51/` and do not become a second runtime or
 compatibility Source of Truth.
 
+### Historical Phase 51 RC verification marker
+
+The Phase 51 repository-local verification support still checks the following
+completed pre-release documentation markers. They are retained here as
+historical compatibility markers and do not supersede the current v0.4.0
+system release boundary above.
+
+```text
+Current Phase 50 completion / Phase 51 RC boundary
+Phase 51 RC evidence is canonical in `mcp-mamono210/redmine`
+```
+
 ## Phase 48-1 historical implementation slice
 
 The runtime implements the Controller entry boundary required by Redmine issue
