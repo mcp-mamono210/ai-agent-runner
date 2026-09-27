@@ -1,5 +1,6 @@
 import type {
   CustomFieldWrite,
+  RedmineCandidateListItem,
   RedmineCustomField,
   RedmineIssueChild,
   RedmineIssueListItem,
@@ -10,6 +11,7 @@ import type {
 } from "./domain.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_CANDIDATE_QUERY_LIMIT = 100;
 
 type FetchLike = typeof fetch;
 
@@ -58,19 +60,30 @@ export class RedmineRestClient {
 
   async listReadyForAgentCandidates(input: {
     readonly projectId: number;
-    readonly lifecycleFieldId: number;
+    readonly briefLifecycleFieldId: number;
+    readonly executionLifecycleFieldId: number;
     readonly lifecycleValue: string;
-    readonly limit: 1;
-  }): Promise<readonly RedmineIssueListItem[]> {
+    readonly limit: number;
+  }): Promise<readonly RedmineCandidateListItem[]> {
     assertPositiveInteger(input.projectId, "projectId");
-    assertPositiveInteger(input.lifecycleFieldId, "lifecycleFieldId");
+    assertPositiveInteger(input.briefLifecycleFieldId, "briefLifecycleFieldId");
+    assertPositiveInteger(input.executionLifecycleFieldId, "executionLifecycleFieldId");
+    assertPositiveInteger(input.limit, "limit");
+    if (input.limit > MAX_CANDIDATE_QUERY_LIMIT) {
+      throw new Error("Redmine candidate query limit must not exceed 100");
+    }
+    if (input.lifecycleValue.trim() === "") {
+      throw new Error("Redmine candidate lifecycle value must not be blank");
+    }
 
     const params = new URLSearchParams({
       project_id: String(input.projectId),
+      subproject_id: "!*",
       status_id: "*",
       limit: String(input.limit),
       sort: "id:asc",
-      [`cf_${input.lifecycleFieldId}`]: input.lifecycleValue,
+      [`cf_${input.briefLifecycleFieldId}`]: input.lifecycleValue,
+      [`cf_${input.executionLifecycleFieldId}`]: "!*",
     });
 
     const payload = await this.#requestJson(
@@ -87,6 +100,14 @@ export class RedmineRestClient {
       return {
         id: positiveInteger(issue.id, `issues[${index}].id`),
         projectId: positiveInteger(project.id, `issues[${index}].project.id`),
+        briefLifecycle: readListScalarCustomField(
+          issue.custom_fields,
+          input.briefLifecycleFieldId,
+        ),
+        executionLifecycle: readListScalarCustomField(
+          issue.custom_fields,
+          input.executionLifecycleFieldId,
+        ),
       };
     });
   }
@@ -241,6 +262,34 @@ export class RedmineRestClient {
 
     return response;
   }
+}
+
+function readListScalarCustomField(
+  rawCustomFields: unknown,
+  customFieldId: number,
+): string | null {
+  if (!Array.isArray(rawCustomFields)) {
+    return null;
+  }
+
+  const fields = rawCustomFields as readonly unknown[];
+  const matches = fields.filter(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === "object" &&
+      entry !== null &&
+      !Array.isArray(entry) &&
+      (entry as Record<string, unknown>).id === customFieldId,
+  );
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const match = matches[0];
+  if (match === undefined) {
+    return null;
+  }
+  const value = match.value;
+  return typeof value === "string" ? value : null;
 }
 
 function parseIssue(raw: Record<string, unknown>): RedmineIssueRecord {

@@ -1,7 +1,12 @@
 import type { ControllerConfig } from "./config.js";
 import type { LocalIssueLock } from "./local-lock.js";
 import {
+  NoopCandidateDiagnosticSink,
+  recordCandidateDiagnostic,
+} from "./candidate-diagnostic.js";
+import {
   READY_FOR_AGENT_LIFECYCLE,
+  type CandidateDiagnosticSink,
   type CandidateSource,
   type EligibleCandidateHandler,
   type HandoffValidator,
@@ -13,6 +18,10 @@ import {
   type StartupReconciler,
 } from "./types.js";
 
+const PHASE53_CANDIDATE_SCAN_LIMIT = 100;
+
+type CandidateProcessingResult = "skipped" | "consumed";
+
 export interface ControllerDependencies {
   readonly candidateSource: CandidateSource;
   readonly issueReader: IssueReader;
@@ -23,6 +32,7 @@ export interface ControllerDependencies {
   readonly eligibleCandidateHandler: EligibleCandidateHandler;
   readonly localLock: LocalIssueLock;
   readonly sleeper: Sleeper;
+  readonly candidateDiagnosticSink?: CandidateDiagnosticSink;
 }
 
 /**
@@ -35,6 +45,7 @@ export interface ControllerDependencies {
 export class AgentController {
   readonly #config: ControllerConfig;
   readonly #deps: ControllerDependencies;
+  readonly #candidateDiagnosticSink: CandidateDiagnosticSink;
 
   constructor(config: ControllerConfig, dependencies: ControllerDependencies) {
     if (config.allowedProjectIds.length === 0) {
@@ -46,6 +57,8 @@ export class AgentController {
 
     this.#config = config;
     this.#deps = dependencies;
+    this.#candidateDiagnosticSink =
+      dependencies.candidateDiagnosticSink ?? new NoopCandidateDiagnosticSink();
   }
 
   /** Startup reconciliation is always completed before the first poll. */
@@ -62,43 +75,106 @@ export class AgentController {
   }
 
   /**
-   * Executes one idle polling cycle. The candidate source is bounded to one
-   * Ready-for-Agent candidate, so this controller cannot start multiple units
-   * of work in a single cycle.
+   * Executes one idle polling cycle. Phase 53 scans at most 100 candidates and
+   * still permits at most one candidate to cross into rejection/execution work
+   * in a single cycle.
    */
   async runOnce(): Promise<void> {
     const candidates = await this.#deps.candidateSource.listReadyForAgentCandidates({
       allowedProjectIds: this.#config.allowedProjectIds,
       lifecycle: READY_FOR_AGENT_LIFECYCLE,
-      limit: 1,
+      limit: PHASE53_CANDIDATE_SCAN_LIMIT,
     });
 
-    const candidate = candidates[0];
-    if (candidate === undefined) {
-      return;
+    if (candidates.length > PHASE53_CANDIDATE_SCAN_LIMIT) {
+      await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+        kind: "query_predicate_mismatch",
+        reason:
+          "candidate list item did not satisfy the requested project and lifecycle predicate",
+      });
+      throw new Error("candidate polling stopped: candidate source exceeded scan bound");
     }
 
-    await this.#processCandidate(candidate);
+    for (const candidate of candidates) {
+      if (!this.#config.allowedProjectIds.includes(candidate.projectId)) {
+        await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+          kind: "query_predicate_mismatch",
+          issueId: candidate.issueId,
+          reason:
+            "candidate list item did not satisfy the requested project and lifecycle predicate",
+        });
+        throw new Error("candidate polling stopped: query predicate mismatch");
+      }
+
+      const result = await this.#processCandidate(candidate);
+      if (result === "consumed") {
+        return;
+      }
+    }
+
+    if (candidates.length === PHASE53_CANDIDATE_SCAN_LIMIT) {
+      await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+        kind: "candidate_scan_exhausted",
+        reason: "candidate scan bound reached without an executable candidate",
+      });
+      throw new Error("candidate polling stopped: candidate scan exhausted");
+    }
   }
 
-  async #processCandidate(candidate: ReadyForAgentCandidate): Promise<void> {
-    if (!this.#config.allowedProjectIds.includes(candidate.projectId)) {
-      return;
-    }
-
+  async #processCandidate(
+    candidate: ReadyForAgentCandidate,
+  ): Promise<CandidateProcessingResult> {
     if (!this.#deps.localLock.tryAcquire(candidate.issueId)) {
-      return;
+      return "skipped";
     }
 
     try {
       const issue = await this.#deps.issueReader.getIssue(candidate.issueId);
 
-      if (
-        issue.issueId !== candidate.issueId ||
-        issue.projectId !== candidate.projectId ||
-        issue.lifecycle !== READY_FOR_AGENT_LIFECYCLE
-      ) {
-        return;
+      if (issue.issueId !== candidate.issueId) {
+        await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+          kind: "candidate_state_changed",
+          issueId: candidate.issueId,
+          reason: "post-lock issue identity changed",
+        });
+        return "skipped";
+      }
+
+      if (issue.projectId !== candidate.projectId) {
+        await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+          kind: "unexpected_project",
+          issueId: issue.issueId,
+          reason: "post-lock issue project changed",
+        });
+        return "skipped";
+      }
+
+      if (issue.lifecycle !== READY_FOR_AGENT_LIFECYCLE) {
+        await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+          kind: "candidate_state_changed",
+          issueId: issue.issueId,
+          reason: "post-lock brief lifecycle changed",
+        });
+        return "skipped";
+      }
+
+      if (issue.postLockState !== undefined) {
+        if (issue.postLockState.executionLifecycle !== "") {
+          await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+            kind: "candidate_state_changed",
+            issueId: issue.issueId,
+            reason: "post-lock execution lifecycle changed",
+          });
+          return "skipped";
+        }
+        if (!issue.postLockState.executionRecordPristine) {
+          await recordCandidateDiagnostic(this.#candidateDiagnosticSink, {
+            kind: "non_pristine_candidate_skipped",
+            issueId: issue.issueId,
+            reason: "post-lock execution or rejection record is non-pristine",
+          });
+          return "skipped";
+        }
       }
 
       const handoffResult = await this.#deps.handoffValidator.validate(issue);
@@ -108,7 +184,7 @@ export class AgentController {
           outcome: "eligibility_failed",
           diagnostic: handoffResult.diagnostic,
         });
-        return;
+        return "consumed";
       }
 
       const requirementsResult = await this.#deps.requirementsRevalidator.revalidate(
@@ -124,7 +200,7 @@ export class AgentController {
             currentRequirementsFingerprint:
               requirementsResult.currentFingerprint,
           });
-          return;
+          return "consumed";
         case "stale":
           await this.#deps.rejectionWriter.reject({
             issueId: issue.issueId,
@@ -133,14 +209,14 @@ export class AgentController {
               requirementsResult.diagnostic ??
               "current requirements fingerprint does not match approved fingerprint",
           });
-          return;
+          return "consumed";
         case "failed":
           await this.#deps.rejectionWriter.reject({
             issueId: issue.issueId,
             outcome: "eligibility_failed",
             diagnostic: requirementsResult.diagnostic,
           });
-          return;
+          return "consumed";
       }
     } finally {
       this.#deps.localLock.release(candidate.issueId);

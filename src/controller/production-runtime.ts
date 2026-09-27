@@ -7,10 +7,14 @@ import { RedmineCandidateSource, RedmineIssueReader } from "../redmine/adapters.
 import { RedminePreExecutionRejectionWriter } from "../redmine/rejection-writer.js";
 import { RedmineRestClient } from "../redmine/rest-client.js";
 import {
+  StderrCandidateDiagnosticSink,
+} from "./candidate-diagnostic.js";
+import {
   loadControllerConfig,
   type ControllerConfig,
 } from "./config.js";
 import type {
+  CandidateDiagnosticSink,
   EligibleCandidateHandler,
   StartupReconciler,
 } from "./types.js";
@@ -27,6 +31,13 @@ export interface Phase48_1RuntimeConfig {
     readonly writeApiKey: string;
     readonly timeoutMs: number;
     readonly lifecycleFieldId: number;
+    /**
+     * Phase 53 candidate filtering requires the production execution lifecycle
+     * field binding. It stays optional in the nested historical config shape so
+     * older config-only consumers remain compatible; production composition
+     * fails closed when the binding is absent.
+     */
+    readonly executionLifecycleFieldId?: number;
   };
   readonly agentBrief: {
     readonly repositoryRoot: string;
@@ -39,6 +50,11 @@ export interface Phase48_1RuntimeConfig {
 export function loadPhase48_1RuntimeConfig(
   env: Environment = process.env,
 ): Phase48_1RuntimeConfig {
+  const executionLifecycleFieldId = parseOptionalPositiveInteger(
+    env.AGENT_RUNNER_EXECUTION_LIFECYCLE_FIELD_ID,
+    "AGENT_RUNNER_EXECUTION_LIFECYCLE_FIELD_ID",
+  );
+
   return {
     controller: loadControllerConfig(env),
     redmine: {
@@ -50,6 +66,9 @@ export function loadPhase48_1RuntimeConfig(
         env.AGENT_RUNNER_BRIEF_LIFECYCLE_FIELD_ID,
         "AGENT_RUNNER_BRIEF_LIFECYCLE_FIELD_ID",
       ),
+      ...(executionLifecycleFieldId === undefined
+        ? {}
+        : { executionLifecycleFieldId }),
     },
     agentBrief: {
       repositoryRoot: requireNonBlank(env, "AGENT_BRIEF_REPOSITORY_ROOT"),
@@ -77,8 +96,16 @@ export function createPhase48_1ProductionController(input: {
   readonly config: Phase48_1RuntimeConfig;
   readonly startupReconciler: StartupReconciler;
   readonly eligibleCandidateHandler: EligibleCandidateHandler;
+  readonly candidateDiagnosticSink?: CandidateDiagnosticSink;
   readonly fetchImpl?: typeof fetch;
 }): AgentController {
+  const executionLifecycleFieldId = input.config.redmine.executionLifecycleFieldId;
+  if (executionLifecycleFieldId === undefined) {
+    throw new Error(
+      "AGENT_RUNNER_EXECUTION_LIFECYCLE_FIELD_ID is required for production candidate filtering",
+    );
+  }
+
   const client = new RedmineRestClient({
     baseUrl: input.config.redmine.baseUrl,
     readApiKey: input.config.redmine.readApiKey,
@@ -92,10 +119,14 @@ export function createPhase48_1ProductionController(input: {
     repository: input.config.agentBrief.repository,
     canonicalBranch: input.config.agentBrief.canonicalBranch,
   });
+  const candidateDiagnosticSink =
+    input.candidateDiagnosticSink ?? new StderrCandidateDiagnosticSink();
 
   return createAgentController(input.config.controller, {
     candidateSource: new RedmineCandidateSource(client, {
       lifecycleFieldId: input.config.redmine.lifecycleFieldId,
+      executionLifecycleFieldId,
+      diagnosticSink: candidateDiagnosticSink,
     }),
     issueReader: new RedmineIssueReader(client),
     handoffValidator: new Phase46HandoffValidator({
@@ -116,6 +147,7 @@ export function createPhase48_1ProductionController(input: {
     }),
     startupReconciler: input.startupReconciler,
     eligibleCandidateHandler: input.eligibleCandidateHandler,
+    candidateDiagnosticSink,
   });
 }
 
@@ -133,6 +165,16 @@ function parseRequiredPositiveInteger(
 ): number {
   if (raw === undefined || raw.trim() === "") {
     throw new Error(`${name} is required`);
+  }
+  return parsePositiveInteger(raw, 0, name);
+}
+
+function parseOptionalPositiveInteger(
+  raw: string | undefined,
+  name: string,
+): number | undefined {
+  if (raw === undefined || raw.trim() === "") {
+    return undefined;
   }
   return parsePositiveInteger(raw, 0, name);
 }

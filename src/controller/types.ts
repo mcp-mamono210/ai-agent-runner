@@ -8,15 +8,50 @@ export const PRE_EXECUTION_REJECTION_OUTCOMES = Object.freeze([
 export type PreExecutionRejectionOutcome =
   (typeof PRE_EXECUTION_REJECTION_OUTCOMES)[number];
 
+export type CandidateDiagnosticKind =
+  | "query_predicate_mismatch"
+  | "non_pristine_candidate_skipped"
+  | "unexpected_project"
+  | "candidate_state_changed"
+  | "candidate_scan_exhausted";
+
+export type CandidateDiagnosticReason =
+  | "candidate list item did not satisfy the requested project and lifecycle predicate"
+  | "post-lock issue identity changed"
+  | "post-lock issue project changed"
+  | "post-lock brief lifecycle changed"
+  | "post-lock execution lifecycle changed"
+  | "post-lock execution or rejection record is non-pristine"
+  | "candidate scan bound reached without an executable candidate";
+
+export interface CandidateDiagnosticSink {
+  record(input: {
+    readonly kind: CandidateDiagnosticKind;
+    readonly issueId?: number;
+    readonly reason: CandidateDiagnosticReason;
+  }): Promise<void>;
+}
+
 export interface ReadyForAgentCandidate {
   issueId: number;
   projectId: number;
+}
+
+export interface PostLockCandidateState {
+  readonly executionLifecycle: string;
+  readonly executionRecordPristine: boolean;
 }
 
 export interface ReFetchedIssue {
   issueId: number;
   projectId: number;
   lifecycle: string;
+  /**
+   * Production Redmine readers provide the Phase 53 post-lock execution guard.
+   * The field remains optional so existing non-Redmine test/dry-run readers do
+   * not become a second execution-state contract.
+   */
+  postLockState?: PostLockCandidateState;
   raw: unknown;
 }
 
@@ -69,7 +104,7 @@ export interface CandidateSource {
   listReadyForAgentCandidates(input: {
     readonly allowedProjectIds: readonly number[];
     readonly lifecycle: typeof READY_FOR_AGENT_LIFECYCLE;
-    readonly limit: 1;
+    readonly limit: number;
   }): Promise<readonly ReadyForAgentCandidate[]>;
 }
 

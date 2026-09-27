@@ -13,6 +13,7 @@ function environment(): Record<string, string> {
     REDMINE_API_KEY: "read-key",
     REDMINE_WRITE_API_KEY: "write-key",
     AGENT_RUNNER_BRIEF_LIFECYCLE_FIELD_ID: "9",
+    AGENT_RUNNER_EXECUTION_LIFECYCLE_FIELD_ID: "11",
     AGENT_BRIEF_REPOSITORY_ROOT: "/tmp/redmine",
     AGENT_BRIEF_REPOSITORY: "mcp-mamono210/redmine",
     AGENT_BRIEF_CANONICAL_BRANCH: "main",

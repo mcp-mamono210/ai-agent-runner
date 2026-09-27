@@ -20,6 +20,10 @@ const issue: ReFetchedIssue = {
   issueId: 9001,
   projectId: 414,
   lifecycle: "Ready for Agent",
+  postLockState: {
+    executionLifecycle: "",
+    executionRecordPristine: true,
+  },
   raw: { id: 9001 },
 };
 
@@ -89,7 +93,7 @@ function buildDependencies(overrides: DependencyOverrides = {}) {
 }
 
 void describe("AgentController", () => {
-  void it("polls only the configured project and Ready for Agent with limit=1", async () => {
+  void it("polls only the configured project and Ready for Agent with the Phase 53 scan bound", async () => {
     const calls: unknown[] = [];
     const candidateSource: CandidateSource = {
       listReadyForAgentCandidates: (input) => {
@@ -109,7 +113,7 @@ void describe("AgentController", () => {
       {
         allowedProjectIds: [414],
         lifecycle: "Ready for Agent",
-        limit: 1,
+        limit: 100,
       },
     ]);
   });
@@ -339,6 +343,7 @@ void describe("AgentController", () => {
 
     assert.deepEqual(order, ["reconcile", "poll"]);
   });
+
   void it("does not begin polling when startup reconciliation remains unconfirmed", async () => {
     let polled = false;
     const deps = buildDependencies({
@@ -357,8 +362,10 @@ void describe("AgentController", () => {
       deps,
     );
 
-    await assert.rejects(controller.run(new AbortController().signal), /reconciliation unconfirmed/u);
+    await assert.rejects(
+      controller.run(new AbortController().signal),
+      /reconciliation unconfirmed/u,
+    );
     assert.equal(polled, false);
   });
-
 });
