@@ -48,7 +48,7 @@ function environment(): Record<string, string> {
 }
 
 void describe("Phase 48-6 production composition", () => {
-  void it("binds concrete startup reconciliation before polling with an explicit execution lifecycle field", async () => {
+  void it("binds concrete startup reconciliation before polling with an exact-project Agent Running query", async () => {
     const env = environment();
     const config = loadPhase48_6RuntimeConfig(env);
     const order: string[] = [];
@@ -56,6 +56,8 @@ void describe("Phase 48-6 production composition", () => {
       const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : input.url);
       if (url.pathname.endsWith("/issues.json")) {
         order.push("list-agent-running");
+        assert.equal(url.searchParams.get("project_id"), "414");
+        assert.equal(url.searchParams.get("subproject_id"), "!*");
         assert.equal(url.searchParams.get("cf_11"), "Agent Running");
         return Promise.resolve(new Response(JSON.stringify({ issues: [] }), { status: 200 }));
       }

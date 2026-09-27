@@ -131,7 +131,7 @@ class RedmineFixture {
   constructor(mode: "ready" | "running", execution = preparedExecution()) {
     const running = mode === "running";
     const values = new Map<string, string>([
-      ["Agent Execution Lifecycle", running ? "Agent Running" : "Ready for Agent"],
+      ["Agent Execution Lifecycle", running ? "Agent Running" : ""],
       ["Agent Rejection At", ""],
       ["Agent Rejection Outcome", ""],
       ["Agent Rejection Diagnostic", ""],

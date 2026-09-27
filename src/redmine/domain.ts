@@ -48,6 +48,10 @@ export interface RedmineIssueListItem {
   readonly projectId: number;
 }
 
+export interface RedmineCustomFieldListItem extends RedmineIssueListItem {
+  readonly customFieldValue: string | null;
+}
+
 export interface RedmineCandidateListItem extends RedmineIssueListItem {
   readonly briefLifecycle: string | null;
   readonly executionLifecycle: string | null;

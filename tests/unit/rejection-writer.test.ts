@@ -10,6 +10,27 @@ interface MutableField {
   value: string;
 }
 
+const FIELD_NAMES = [
+  "Agent Execution Lifecycle",
+  "Agent Execution ID",
+  "Agent Exec Brief Revision",
+  "Agent Exec Persisted Revision",
+  "Agent Exec Req Fingerprint",
+  "Agent Execution Repository",
+  "Agent Exec Source Revision",
+  "Agent Execution Started At",
+  "Agent Execution Finished At",
+  "Agent Execution Outcome",
+  "Agent Artifact Reference",
+  "Agent Rejection At",
+  "Agent Rejection Outcome",
+  "Agent Rejection Diagnostic",
+] as const;
+
+function createFields(): MutableField[] {
+  return FIELD_NAMES.map((name, index) => ({ id: 11 + index, name, value: "" }));
+}
+
 function issuePayload(fields: readonly MutableField[]): unknown {
   return {
     issue: {
@@ -27,7 +48,6 @@ function issuePayload(fields: readonly MutableField[]): unknown {
   };
 }
 
-
 function requestUrl(input: RequestInfo | URL): URL {
   if (input instanceof URL) {
     return input;
@@ -39,14 +59,8 @@ function requestUrl(input: RequestInfo | URL): URL {
 }
 
 void describe("Redmine pre-execution rejection writer", () => {
-  void it("writes only rejection fields and verifies the durable read-back", async () => {
-    const fields: MutableField[] = [
-      { id: 11, name: "Agent Execution Lifecycle", value: "" },
-      { id: 12, name: "Agent Rejection At", value: "" },
-      { id: 13, name: "Agent Rejection Outcome", value: "" },
-      { id: 14, name: "Agent Rejection Diagnostic", value: "" },
-      { id: 15, name: "Agent Execution ID", value: "" },
-    ];
+  void it("writes only rejection fields from pristine durable state and verifies read-back", async () => {
+    const fields = createFields();
     let putCount = 0;
 
     const fakeFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -60,6 +74,7 @@ void describe("Redmine pre-execution rejection writer", () => {
         const parsed = JSON.parse(body) as {
           issue: { custom_fields: Array<{ id: number; value: string }> };
         };
+        assert.equal(parsed.issue.custom_fields.length, 4);
         for (const update of parsed.issue.custom_fields) {
           const field = fields.find((candidate) => candidate.id === update.id);
           if (field === undefined) {
@@ -94,10 +109,54 @@ void describe("Redmine pre-execution rejection writer", () => {
     });
 
     assert.equal(putCount, 1);
-    assert.equal(fields.find((field) => field.id === 11)?.value, "Needs Human");
-    assert.equal(fields.find((field) => field.id === 12)?.value, "2026-09-17T01:02:03.000Z");
-    assert.equal(fields.find((field) => field.id === 13)?.value, "eligibility_failed");
-    assert.match(fields.find((field) => field.id === 14)?.value ?? "", /\[REDACTED\]/u);
-    assert.equal(fields.find((field) => field.id === 15)?.value, "");
+    assert.equal(fields.find((field) => field.name === "Agent Execution Lifecycle")?.value, "Needs Human");
+    assert.equal(fields.find((field) => field.name === "Agent Rejection At")?.value, "2026-09-17T01:02:03.000Z");
+    assert.equal(fields.find((field) => field.name === "Agent Rejection Outcome")?.value, "eligibility_failed");
+    assert.match(fields.find((field) => field.name === "Agent Rejection Diagnostic")?.value ?? "", /\[REDACTED\]/u);
+    assert.equal(fields.find((field) => field.name === "Agent Execution ID")?.value, "");
+  });
+
+  void it("refuses every existing durable execution or rejection value without overwriting it", async () => {
+    for (const nonPristineName of FIELD_NAMES) {
+      const fields = createFields();
+      const nonPristine = fields.find((field) => field.name === nonPristineName);
+      if (nonPristine === undefined) {
+        throw new Error("missing non-pristine fixture field");
+      }
+      nonPristine.value = "existing-durable-state";
+      let putCount = 0;
+      const writer = new RedminePreExecutionRejectionWriter({
+        client: new RedmineRestClient({
+          baseUrl: "https://redmine.example.test",
+          readApiKey: "read-key",
+          writeApiKey: "write-key",
+          fetchImpl: (input, init) => {
+            const url = requestUrl(input);
+            if (!url.pathname.endsWith("/issues/9001.json")) {
+              return Promise.resolve(new Response("not found", { status: 404 }));
+            }
+            if ((init?.method ?? "GET") === "PUT") {
+              putCount += 1;
+              return Promise.resolve(new Response(null, { status: 204 }));
+            }
+            return Promise.resolve(
+              new Response(JSON.stringify(issuePayload(fields)), { status: 200 }),
+            );
+          },
+        }),
+        allowedProjectIds: [414],
+      });
+
+      await assert.rejects(
+        writer.reject({
+          issueId: 9001,
+          outcome: "eligibility_failed",
+          diagnostic: "fixture rejection",
+        }),
+        /durable execution\/rejection state is not pristine/u,
+      );
+      assert.equal(putCount, 0, nonPristineName);
+      assert.equal(nonPristine.value, "existing-durable-state");
+    }
   });
 });

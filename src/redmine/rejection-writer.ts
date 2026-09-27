@@ -3,9 +3,15 @@ import type {
   PreExecutionRejectionWriter,
 } from "../controller/types.js";
 import {
+  bindPristineDurableExecutionFields,
+  requireBoundDurableExecutionField,
+  type DurableExecutionFieldName,
+} from "./durable-state-guard.js";
+import {
   findUniqueCustomField,
   scalarCustomFieldValue,
   type CustomFieldWrite,
+  type RedmineCustomField,
   type RedmineIssueRecord,
 } from "./domain.js";
 import type { RedmineRestClient } from "./rest-client.js";
@@ -15,11 +21,11 @@ const FIELD_NAMES = {
   rejectedAt: "Agent Rejection At",
   outcome: "Agent Rejection Outcome",
   diagnostic: "Agent Rejection Diagnostic",
-} as const;
+} as const satisfies Record<string, DurableExecutionFieldName>;
 const NEEDS_HUMAN = "Needs Human";
 const MAX_DIAGNOSTIC_BYTES = 2_048;
 const REDACTED_VALUE = "[REDACTED]";
-const ELLIPSIS = "…";
+const ELLIPSIS = "\u2026";
 
 export class RedminePreExecutionRejectionWriter
   implements PreExecutionRejectionWriter
@@ -52,11 +58,15 @@ export class RedminePreExecutionRejectionWriter
     readonly diagnostic: string;
   }): Promise<void> {
     const before = await this.#client.getIssue(input.issueId);
+    if (before.id !== input.issueId) {
+      throw new Error("pre-execution rejection Issue identity mismatch");
+    }
     if (!this.#allowedProjectIds.includes(before.project.id)) {
       throw new Error("pre-execution rejection write is outside allowed projects");
     }
+    const fields = bindPristineDurableExecutionFields(before);
     const writes = buildWrites(
-      before,
+      fields,
       input.outcome,
       sanitizeDiagnostic(input.diagnostic, this.#secretValues),
       this.#clock().toISOString(),
@@ -65,26 +75,36 @@ export class RedminePreExecutionRejectionWriter
     await this.#client.updateIssueCustomFields(input.issueId, writes);
 
     const after = await this.#client.getIssue(input.issueId);
+    if (after.id !== input.issueId || !this.#allowedProjectIds.includes(after.project.id)) {
+      throw new Error("pre-execution rejection read-back Issue boundary changed");
+    }
     assertReadBack(after, input.outcome, writes);
   }
 }
 
 function buildWrites(
-  issue: RedmineIssueRecord,
+  fields: ReadonlyMap<DurableExecutionFieldName, RedmineCustomField>,
   outcome: PreExecutionRejectionOutcome,
   diagnostic: string,
   rejectedAt: string,
 ): readonly CustomFieldWrite[] {
-  const lifecycle = findUniqueCustomField(issue, FIELD_NAMES.lifecycle);
-  const rejectedAtField = findUniqueCustomField(issue, FIELD_NAMES.rejectedAt);
-  const outcomeField = findUniqueCustomField(issue, FIELD_NAMES.outcome);
-  const diagnosticField = findUniqueCustomField(issue, FIELD_NAMES.diagnostic);
-
   return [
-    { id: lifecycle.id, value: NEEDS_HUMAN },
-    { id: rejectedAtField.id, value: rejectedAt },
-    { id: outcomeField.id, value: outcome },
-    { id: diagnosticField.id, value: diagnostic },
+    {
+      id: requireBoundDurableExecutionField(fields, FIELD_NAMES.lifecycle).id,
+      value: NEEDS_HUMAN,
+    },
+    {
+      id: requireBoundDurableExecutionField(fields, FIELD_NAMES.rejectedAt).id,
+      value: rejectedAt,
+    },
+    {
+      id: requireBoundDurableExecutionField(fields, FIELD_NAMES.outcome).id,
+      value: outcome,
+    },
+    {
+      id: requireBoundDurableExecutionField(fields, FIELD_NAMES.diagnostic).id,
+      value: diagnostic,
+    },
   ];
 }
 

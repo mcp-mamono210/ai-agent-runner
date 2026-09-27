@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { Phase48_6StartupReconciler } from "../../src/recovery/startup-reconciler.js";
+import { RecoveryQueryPredicateMismatchError } from "../../src/recovery/types.js";
 import { KnownSecretRedactor } from "../../src/security/redaction.js";
 
 void describe("Phase 48-6 startup reconciliation", () => {
@@ -41,6 +42,51 @@ void describe("Phase 48-6 startup reconciliation", () => {
     assert.deepEqual(order, ["cleanup", "list", "finalize:5415"]);
     assert.equal(diagnostics.some((entry) => entry.includes("removed transient orphan resources")), true);
     assert.equal(diagnostics.some((entry) => entry.includes("finalized as interrupted")), true);
+  });
+
+  void it("stops startup with query_predicate_mismatch before any reconciliation write", async () => {
+    const diagnostics: Array<{ kind: string; issueId?: number; message: string }> = [];
+    let finalized = false;
+    const reconciler = new Phase48_6StartupReconciler({
+      cleaner: {
+        cleanup: () => Promise.resolve({ removedSandboxContainers: 0, removedWorkspaces: 0 }),
+      },
+      source: {
+        listAgentRunningExecutions: () => Promise.reject(
+          new RecoveryQueryPredicateMismatchError(
+            "Agent Running query response did not satisfy the requested project and lifecycle predicate",
+            5415,
+          ),
+        ),
+      },
+      finalizer: {
+        finalizeInterrupted: () => {
+          finalized = true;
+          return Promise.resolve();
+        },
+      },
+      redactor: new KnownSecretRedactor([]),
+      diagnosticSink: {
+        record: (input) => {
+          diagnostics.push(input);
+          return Promise.resolve();
+        },
+      },
+    });
+
+    await assert.rejects(
+      reconciler.reconcile(),
+      /startup recovery Agent Running query failed/u,
+    );
+
+    assert.equal(finalized, false);
+    assert.deepEqual(diagnostics, [
+      {
+        kind: "query_predicate_mismatch",
+        issueId: 5415,
+        message: "Agent Running query response did not satisfy the requested project and lifecycle predicate",
+      },
+    ]);
   });
 
   void it("keeps reconciliation unconfirmed and redacts secret-bearing failure diagnostics", async () => {
@@ -85,6 +131,7 @@ void describe("Phase 48-6 startup reconciliation", () => {
     await assert.rejects(reconciler.reconcile(), /raw content suppressed/u);
     assert.deepEqual(diagnostics, ["recovery diagnostic redaction failed; raw content suppressed"]);
   });
+
   void it("allows a later startup pass to retry state reconciliation without retrying Agent execution", async () => {
     let attempts = 0;
     const reconciler = new Phase48_6StartupReconciler({
@@ -108,5 +155,4 @@ void describe("Phase 48-6 startup reconciliation", () => {
 
     assert.equal(attempts, 2);
   });
-
 });

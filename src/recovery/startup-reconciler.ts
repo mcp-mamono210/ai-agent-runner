@@ -2,6 +2,8 @@ import type { StartupReconciler } from "../controller/types.js";
 import type { Redactor } from "../security/redaction.js";
 import {
   NoopRecoveryDiagnosticSink,
+  RecoveryQueryPredicateMismatchError,
+  type AgentRunningExecutionCandidate,
   type AgentRunningExecutionSource,
   type InterruptedExecutionFinalizer,
   type OrphanRuntimeCleaner,
@@ -45,7 +47,7 @@ export class Phase48_6StartupReconciler implements StartupReconciler {
       throw new Error(`startup recovery cleanup failed: ${message}`);
     }
 
-    const candidates = await this.#source.listAgentRunningExecutions();
+    const candidates = await this.#listCandidatesFailClosed();
     const seen = new Set<number>();
     const failures: Error[] = [];
 
@@ -78,6 +80,24 @@ export class Phase48_6StartupReconciler implements StartupReconciler {
         failures,
         "startup reconciliation did not confirm every Agent Running execution",
       );
+    }
+  }
+
+  async #listCandidatesFailClosed(): Promise<readonly AgentRunningExecutionCandidate[]> {
+    try {
+      return await this.#source.listAgentRunningExecutions();
+    } catch (error) {
+      const message = this.#safeRedact(errorMessage(error));
+      const kind: RecoveryDiagnosticKind =
+        error instanceof RecoveryQueryPredicateMismatchError
+          ? "query_predicate_mismatch"
+          : "reconciliation_failure";
+      const issueId =
+        error instanceof RecoveryQueryPredicateMismatchError
+          ? error.issueId
+          : undefined;
+      await this.#report(kind, message, issueId);
+      throw new Error(`startup recovery Agent Running query failed: ${message}`);
     }
   }
 

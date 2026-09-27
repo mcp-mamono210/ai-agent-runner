@@ -7,6 +7,16 @@ export interface AgentRunningExecutionSource {
   listAgentRunningExecutions(): Promise<readonly AgentRunningExecutionCandidate[]>;
 }
 
+export class RecoveryQueryPredicateMismatchError extends Error {
+  readonly issueId?: number;
+
+  constructor(message: string, issueId?: number) {
+    super(message);
+    this.name = "RecoveryQueryPredicateMismatchError";
+    this.issueId = issueId;
+  }
+}
+
 export interface InterruptedExecutionFinalizer {
   finalizeInterrupted(issueId: number): Promise<void>;
 }
@@ -23,6 +33,7 @@ export interface OrphanRuntimeCleaner {
 export type RecoveryDiagnosticKind =
   | "cleanup_failure"
   | "orphan_resource"
+  | "query_predicate_mismatch"
   | "reconciliation_failure"
   | "interruption";
 

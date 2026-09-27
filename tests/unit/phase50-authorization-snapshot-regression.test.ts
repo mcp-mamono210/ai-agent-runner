@@ -124,6 +124,15 @@ function rejectionFixture(): RejectionFixture {
     { id: 13, name: "Agent Rejection Outcome", value: "" },
     { id: 14, name: "Agent Rejection Diagnostic", value: "" },
     { id: 15, name: "Agent Execution ID", value: "" },
+    { id: 16, name: "Agent Exec Brief Revision", value: "" },
+    { id: 17, name: "Agent Exec Persisted Revision", value: "" },
+    { id: 18, name: "Agent Exec Req Fingerprint", value: "" },
+    { id: 19, name: "Agent Execution Repository", value: "" },
+    { id: 20, name: "Agent Exec Source Revision", value: "" },
+    { id: 21, name: "Agent Execution Started At", value: "" },
+    { id: 22, name: "Agent Execution Finished At", value: "" },
+    { id: 23, name: "Agent Execution Outcome", value: "" },
+    { id: 24, name: "Agent Artifact Reference", value: "" },
   ];
   let writes = 0;
 

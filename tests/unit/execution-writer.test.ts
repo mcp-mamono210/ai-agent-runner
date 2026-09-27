@@ -42,7 +42,7 @@ function createFields(): MutableField[] {
   return FIELD_NAMES.map((name, index) => ({
     id: 11 + index,
     name,
-    value: name.startsWith("Agent Rejection") ? "stale-value" : "",
+    value: "",
   }));
 }
 
@@ -109,7 +109,7 @@ function execution(): PreparedExecution {
 }
 
 void describe("Redmine Agent Running durable writer", () => {
-  void it("writes one complete start projection and confirms exact read-back", async () => {
+  void it("writes one complete start projection and confirms exact read-back from pristine state", async () => {
     const fields = createFields();
     let putCount = 0;
     const fakeFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -171,6 +171,45 @@ void describe("Redmine Agent Running durable writer", () => {
     assert.equal(values.get("Agent Artifact Reference"), "");
   });
 
+  void it("refuses every non-pristine execution or rejection field before mutation", async () => {
+    for (const nonPristineName of FIELD_NAMES) {
+      const fields = createFields();
+      const nonPristine = fields.find((field) => field.name === nonPristineName);
+      if (nonPristine === undefined) {
+        throw new Error("missing non-pristine fixture field");
+      }
+      nonPristine.value = "existing-durable-state";
+      let putCount = 0;
+      const writer = new RedmineAgentRunningWriter({
+        client: new RedmineRestClient({
+          baseUrl: "https://redmine.example.test",
+          readApiKey: "read-key",
+          writeApiKey: "write-key",
+          fetchImpl: (input, init) => {
+            const url = requestUrl(input);
+            if (!url.pathname.endsWith("/issues/5412.json")) {
+              return Promise.resolve(new Response("not found", { status: 404 }));
+            }
+            if ((init?.method ?? "GET") === "PUT") {
+              putCount += 1;
+              return Promise.resolve(new Response(null, { status: 204 }));
+            }
+            return Promise.resolve(
+              new Response(JSON.stringify(issuePayload(fields)), { status: 200 }),
+            );
+          },
+        }),
+        allowedProjectIds: [414],
+      });
+
+      await assert.rejects(
+        writer.persistAndConfirm(execution()),
+        /durable execution\/rejection state is not pristine/u,
+      );
+      assert.equal(putCount, 0, nonPristineName);
+    }
+  });
+
   void it("does not treat HTTP success as durable success when read-back mismatches", async () => {
     const fields = createFields();
     let getCount = 0;
@@ -180,6 +219,16 @@ void describe("Redmine Agent Running durable writer", () => {
         return Promise.resolve(new Response("not found", { status: 404 }));
       }
       if ((init?.method ?? "GET") === "PUT") {
+        const body = typeof init?.body === "string" ? init.body : "";
+        const parsed = JSON.parse(body) as {
+          issue: { custom_fields: Array<{ id: number; value: string }> };
+        };
+        for (const update of parsed.issue.custom_fields) {
+          const field = fields.find((candidate) => candidate.id === update.id);
+          if (field !== undefined) {
+            field.value = update.value;
+          }
+        }
         return Promise.resolve(new Response(null, { status: 204 }));
       }
       getCount += 1;

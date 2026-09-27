@@ -2,8 +2,8 @@ import type {
   CustomFieldWrite,
   RedmineCandidateListItem,
   RedmineCustomField,
+  RedmineCustomFieldListItem,
   RedmineIssueChild,
-  RedmineIssueListItem,
   RedmineIssueRecord,
   RedmineIssueRelation,
   RedmineJournal,
@@ -117,7 +117,7 @@ export class RedmineRestClient {
     readonly customFieldId: number;
     readonly value: string;
     readonly limit: number;
-  }): Promise<readonly RedmineIssueListItem[]> {
+  }): Promise<readonly RedmineCustomFieldListItem[]> {
     assertPositiveInteger(input.projectId, "projectId");
     assertPositiveInteger(input.customFieldId, "customFieldId");
     assertPositiveInteger(input.limit, "limit");
@@ -130,6 +130,7 @@ export class RedmineRestClient {
 
     const params = new URLSearchParams({
       project_id: String(input.projectId),
+      subproject_id: "!*",
       status_id: "*",
       limit: String(input.limit),
       sort: "id:asc",
@@ -154,6 +155,10 @@ export class RedmineRestClient {
       return {
         id: positiveInteger(issue.id, `issues[${index}].id`),
         projectId: positiveInteger(project.id, `issues[${index}].project.id`),
+        customFieldValue: readListScalarCustomField(
+          issue.custom_fields,
+          input.customFieldId,
+        ),
       };
     });
   }

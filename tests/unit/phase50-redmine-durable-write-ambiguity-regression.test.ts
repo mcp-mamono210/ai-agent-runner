@@ -85,7 +85,7 @@ void describe("Phase 50-5 Redmine durable-write / finalization ambiguity regress
 
     assert.deepEqual(faults.observed(), ["FI-01"]);
     assert.equal(backend.writeCount, 1);
-    assert.equal(backend.value("Agent Execution Lifecycle"), "Ready for Agent");
+    assert.equal(backend.value("Agent Execution Lifecycle"), "");
     assert.equal(backend.value("Agent Execution ID"), "");
     assert.equal(backend.value("Agent Rejection Outcome"), "");
     assert.equal(backend.value("Agent Execution Outcome"), "");
@@ -96,7 +96,7 @@ void describe("Phase 50-5 Redmine durable-write / finalization ambiguity regress
 
     // A later explicit Controller evaluation is new preparation, not an
     // automatic retry of a started Agent. FI-01 is one-shot and the prior
-    // durable state remained Ready for Agent.
+    // durable execution/rejection state remained pristine.
     await fixture.controller.runOnce();
 
     assert.equal(backend.writeCount, 2);
@@ -302,7 +302,13 @@ function controllerFixture(
         getIssue: () => Promise.resolve({
           issueId: ISSUE_ID,
           projectId: PROJECT_ID,
-          lifecycle: backend.value("Agent Execution Lifecycle"),
+          lifecycle: "Ready for Agent",
+          postLockState: {
+            executionLifecycle: backend.value("Agent Execution Lifecycle"),
+            executionRecordPristine: FIELD_NAMES.every(
+              (name) => backend.value(name) === "",
+            ),
+          },
           raw: {},
         }),
       },
@@ -601,9 +607,7 @@ function changesReadyHandoff(): Phase49DevelopmentHandoffInput {
 }
 
 function readyForAgentFields(): MutableField[] {
-  return fieldsFromValues(new Map<string, string>([
-    ["Agent Execution Lifecycle", "Ready for Agent"],
-  ]));
+  return fieldsFromValues(new Map<string, string>());
 }
 
 function startedExecutionFields(execution: PreparedExecution): MutableField[] {

@@ -1,7 +1,8 @@
 import type { RedmineRestClient } from "../redmine/rest-client.js";
-import type {
-  AgentRunningExecutionCandidate,
-  AgentRunningExecutionSource,
+import {
+  RecoveryQueryPredicateMismatchError,
+  type AgentRunningExecutionCandidate,
+  type AgentRunningExecutionSource,
 } from "./types.js";
 
 const AGENT_RUNNING = "Agent Running";
@@ -37,8 +38,11 @@ export class RedmineAgentRunningExecutionSource implements AgentRunningExecution
         limit: 100,
       });
       for (const issue of issues) {
-        if (issue.projectId !== projectId) {
-          throw new Error("Agent Running query returned an issue outside the requested project");
+        if (issue.projectId !== projectId || issue.customFieldValue !== AGENT_RUNNING) {
+          throw new RecoveryQueryPredicateMismatchError(
+            "Agent Running query response did not satisfy the requested project and lifecycle predicate",
+            issue.id,
+          );
         }
         output.push({ issueId: issue.id, projectId: issue.projectId });
       }

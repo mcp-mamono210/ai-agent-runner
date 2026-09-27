@@ -3,10 +3,15 @@ import type {
   PreparedExecution,
 } from "../execution/types.js";
 import {
+  bindPristineDurableExecutionFields,
+  DURABLE_EXECUTION_FIELD_NAMES,
+  requireBoundDurableExecutionField,
+  type DurableExecutionFieldName,
+} from "./durable-state-guard.js";
+import {
   findUniqueCustomField,
   scalarCustomFieldValue,
   type CustomFieldWrite,
-  type RedmineCustomField,
   type RedmineIssueRecord,
 } from "./domain.js";
 import type { RedmineRestClient } from "./rest-client.js";
@@ -26,10 +31,9 @@ const FIELD_NAMES = {
   finishedAt: "Agent Execution Finished At",
   outcome: "Agent Execution Outcome",
   artifactReference: "Agent Artifact Reference",
-} as const;
+} as const satisfies Record<string, DurableExecutionFieldName>;
 
 const AGENT_RUNNING = "Agent Running";
-const FIELD_NAME_LIST = Object.values(FIELD_NAMES);
 
 export class RedmineAgentRunningWriter implements AgentRunningDurableWriter {
   readonly #client: RedmineRestClient;
@@ -78,16 +82,8 @@ function buildStartWrites(
   issue: RedmineIssueRecord,
   execution: PreparedExecution,
 ): readonly CustomFieldWrite[] {
-  const fields = new Map<string, RedmineCustomField>();
-  for (const name of FIELD_NAME_LIST) {
-    fields.set(name, findUniqueCustomField(issue, name));
-  }
-  const ids = [...fields.values()].map((field) => field.id);
-  if (new Set(ids).size !== ids.length) {
-    throw new Error("Agent execution custom-field binding contains duplicate IDs");
-  }
-
-  const values = new Map<string, string>([
+  const fields = bindPristineDurableExecutionFields(issue);
+  const values = new Map<DurableExecutionFieldName, string>([
     [FIELD_NAMES.lifecycle, AGENT_RUNNING],
     [FIELD_NAMES.rejectedAt, ""],
     [FIELD_NAMES.rejectionOutcome, ""],
@@ -104,13 +100,15 @@ function buildStartWrites(
     [FIELD_NAMES.artifactReference, ""],
   ]);
 
-  return FIELD_NAME_LIST.map((name) => {
-    const field = fields.get(name);
+  return DURABLE_EXECUTION_FIELD_NAMES.map((name) => {
     const value = values.get(name);
-    if (field === undefined || value === undefined) {
+    if (value === undefined) {
       throw new Error(`Agent execution start projection is incomplete: ${name}`);
     }
-    return { id: field.id, value };
+    return {
+      id: requireBoundDurableExecutionField(fields, name).id,
+      value,
+    };
   });
 }
 
@@ -119,7 +117,7 @@ function assertExactStartReadBack(
   writes: readonly CustomFieldWrite[],
 ): void {
   const expectedById = new Map(writes.map((entry) => [entry.id, entry.value]));
-  for (const name of FIELD_NAME_LIST) {
+  for (const name of DURABLE_EXECUTION_FIELD_NAMES) {
     const field = findUniqueCustomField(issue, name);
     const expected = expectedById.get(field.id);
     if (expected === undefined) {
