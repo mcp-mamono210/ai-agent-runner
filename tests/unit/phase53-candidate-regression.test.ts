@@ -304,6 +304,111 @@ void describe("Phase 53 candidate scan regressions", () => {
     ]);
   });
 
+  void it("skips a completed lower-ID candidate and never invokes it a second time", async () => {
+    const diagnostics: unknown[] = [];
+    const handled: number[] = [];
+    const deps = buildDependencies({
+      candidateSource: {
+        listReadyForAgentCandidates: () => Promise.resolve([
+          { issueId: 9001, projectId: 414 },
+          { issueId: 9002, projectId: 414 },
+        ]),
+      },
+      issueReader: {
+        getIssue: (issueId) => Promise.resolve(
+          issueId === 9001
+            ? {
+                ...readyIssue(9001),
+                postLockState: {
+                  executionLifecycle: "Ready for Independent Verification",
+                  executionRecordPristine: false,
+                },
+              }
+            : readyIssue(issueId),
+        ),
+      },
+      candidateDiagnosticSink: {
+        record: (input) => {
+          diagnostics.push(input);
+          return Promise.resolve();
+        },
+      },
+      eligibleCandidateHandler: {
+        handle: (input) => {
+          handled.push(input.issue.issueId);
+          return Promise.resolve();
+        },
+      },
+    });
+
+    await new AgentController(
+      { allowedProjectIds: [414], pollIntervalMs: 30_000 },
+      deps,
+    ).runOnce();
+
+    assert.deepEqual(handled, [9002]);
+    assert.equal(handled.includes(9001), false);
+    assert.deepEqual(diagnostics, [
+      {
+        kind: "candidate_state_changed",
+        issueId: 9001,
+        reason: "post-lock execution lifecycle changed",
+      },
+    ]);
+  });
+
+  void it("skips a Needs Human lower-ID candidate and selects the later eligible Issue", async () => {
+    const diagnostics: unknown[] = [];
+    const handled: number[] = [];
+    const deps = buildDependencies({
+      candidateSource: {
+        listReadyForAgentCandidates: () => Promise.resolve([
+          { issueId: 9001, projectId: 414 },
+          { issueId: 9002, projectId: 414 },
+        ]),
+      },
+      issueReader: {
+        getIssue: (issueId) => Promise.resolve(
+          issueId === 9001
+            ? {
+                ...readyIssue(9001),
+                postLockState: {
+                  executionLifecycle: "Needs Human",
+                  executionRecordPristine: false,
+                },
+              }
+            : readyIssue(issueId),
+        ),
+      },
+      candidateDiagnosticSink: {
+        record: (input) => {
+          diagnostics.push(input);
+          return Promise.resolve();
+        },
+      },
+      eligibleCandidateHandler: {
+        handle: (input) => {
+          handled.push(input.issue.issueId);
+          return Promise.resolve();
+        },
+      },
+    });
+
+    await new AgentController(
+      { allowedProjectIds: [414], pollIntervalMs: 30_000 },
+      deps,
+    ).runOnce();
+
+    assert.deepEqual(handled, [9002]);
+    assert.deepEqual(diagnostics, [
+      {
+        kind: "candidate_state_changed",
+        issueId: 9001,
+        reason: "post-lock execution lifecycle changed",
+      },
+    ]);
+  });
+
   void it("stops polling with candidate_scan_exhausted after 100 skippable candidates and never invokes the Agent handler", async () => {
     const diagnostics: unknown[] = [];
     let handled = false;

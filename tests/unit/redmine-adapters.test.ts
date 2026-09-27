@@ -175,6 +175,60 @@ void describe("Redmine Phase 53 candidate adapters", () => {
     ]);
   });
 
+  void it("fails closed when a child-project Issue leaks through the no-subproject query", async () => {
+    const diagnostics: unknown[] = [];
+    const diagnosticSink: CandidateDiagnosticSink = {
+      record: (input) => {
+        diagnostics.push(input);
+        return Promise.resolve();
+      },
+    };
+    const childProjectFetch = (input: RequestInfo | URL): Promise<Response> => {
+      const url = requestUrl(input);
+      assert.equal(url.searchParams.get("project_id"), "414");
+      assert.equal(url.searchParams.get("subproject_id"), "!*");
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            issues: [
+              {
+                id: 9001,
+                project: { id: 415, name: "Redmine child" },
+                custom_fields: [
+                  { id: 9, value: "Ready for Agent" },
+                  { id: 11, value: "" },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    };
+    const source = new RedmineCandidateSource(client(childProjectFetch), {
+      lifecycleFieldId: 9,
+      executionLifecycleFieldId: 11,
+      diagnosticSink,
+    });
+
+    await assert.rejects(
+      source.listReadyForAgentCandidates({
+        allowedProjectIds: [414],
+        lifecycle: "Ready for Agent",
+        limit: 100,
+      }),
+      /query predicate mismatch/u,
+    );
+    assert.deepEqual(diagnostics, [
+      {
+        kind: "query_predicate_mismatch",
+        issueId: 9001,
+        reason:
+          "candidate list item did not satisfy the requested project and lifecycle predicate",
+      },
+    ]);
+  });
+
   void it("re-fetches the Issue and resolves the complete execution/rejection pristine guard", async () => {
     const reader = new RedmineIssueReader(client());
     const issue = await reader.getIssue(9002);
